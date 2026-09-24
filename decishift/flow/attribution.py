@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from decishift.core.exceptions import InsufficientEvidenceError
+from decishift.flow.actions import action_display_key, action_equal_mask
 from decishift.flow.flow import DecisionFlow
 from decishift.flow.hybrid import FlowHybridCache
 from decishift.flow.targets import AttributionTarget, evaluate_numeric_target, resolve_attribution_target
@@ -428,13 +429,14 @@ def flow_pairwise_interactions(
         vab = evaluate_numeric_target(target_obj, tab, empty, candidate_trace)
         interaction = vab - va - vb + v0
         interaction_only = (
-            (ta.actions == empty.actions)
-            & (tb.actions == empty.actions)
-            & (tab.actions != empty.actions)
+            action_equal_mask(ta.actions, empty.actions)
+            & action_equal_mask(tb.actions, empty.actions)
+            & ~action_equal_mask(tab.actions, empty.actions)
         )
+        same_as_baseline = action_equal_mask(empty.actions, tab.actions)
         transition = np.asarray([
-            f"{base}->{after}" if base != after else "unchanged"
-            for base, after in zip(empty.actions, tab.actions)
+            "unchanged" if same else f"{action_display_key(base)}->{action_display_key(after)}"
+            for base, after, same in zip(empty.actions, tab.actions, same_as_baseline)
         ], dtype=object)
         rows.append(pd.DataFrame({
             "record_id": ids,

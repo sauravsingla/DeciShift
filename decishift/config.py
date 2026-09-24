@@ -10,6 +10,8 @@ import yaml
 from decishift.core.exceptions import ConfigurationError
 from decishift.core.identity import ComponentIdentity, sha256_file
 from decishift.core.pipeline import DecisionPipeline
+from decishift.flow.flow import DecisionFlow
+from decishift.flow.node import DecisionNode
 
 
 def load_yaml(path: str | Path) -> dict[str, Any]:
@@ -137,4 +139,39 @@ def build_pipeline(spec: dict[str, Any], name: str, *, base_dir: Path | None = N
         artifact_paths=artifact_paths,
         name=name,
         strict_reproducibility=strict,
+    )
+
+
+def build_flow(spec: dict[str, Any], name: str, *, base_dir: Path | None = None) -> DecisionFlow:
+    """Build a local DecisionFlow from a YAML-compatible mapping."""
+    nodes_spec = spec.get("nodes")
+    final_node = spec.get("final_node")
+    if not isinstance(nodes_spec, dict) or not nodes_spec:
+        raise ConfigurationError(f"{name}.nodes must be a non-empty mapping")
+    if not isinstance(final_node, str) or not final_node:
+        raise ConfigurationError(f"{name}.final_node is required")
+
+    nodes: list[DecisionNode] = []
+    for node_name, node_spec in nodes_spec.items():
+        if not isinstance(node_spec, dict):
+            raise ConfigurationError(f"Flow node '{node_name}' must be a mapping")
+        component, version, identity, artifact_path = _component(node_name, node_spec, base_dir=base_dir)
+        depends_on = node_spec.get("depends_on") or []
+        if not isinstance(depends_on, (list, tuple)):
+            raise ConfigurationError(f"Flow node '{node_name}'.depends_on must be a list")
+        nodes.append(DecisionNode(
+            name=str(node_name),
+            component=component,
+            depends_on=tuple(str(dep) for dep in depends_on),
+            version=None if version is None else str(version),
+            group=None if node_spec.get("group") is None else str(node_spec.get("group")),
+            identity=identity,
+            artifact_path=artifact_path,
+        ))
+
+    return DecisionFlow(
+        nodes=tuple(nodes),
+        final_node=final_node,
+        name=name,
+        strict_reproducibility=bool(spec.get("strict_reproducibility", False)),
     )

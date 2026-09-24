@@ -2,7 +2,7 @@
 
 All notable changes to DeciShift are documented here.
 
-## 0.3.0 - Unreleased
+## 0.3.0 - 2026-09-24
 
 Theme: **Composable Decision Flows**.
 
@@ -27,6 +27,14 @@ Theme: **Composable Decision Flows**.
 - Synthetic equipment-maintenance triage example with `monitor`, `inspect`, and `service` actions.
 - CPU benchmark harness for linear 5-node and branched 8-node flows at 10,000 and 100,000 rows.
 
+### Changed
+
+- Separate attribution additivity (`efficiency_valid`) from Monte Carlo sampling precision and convergence semantics.
+- Preserve the legacy `converged` field while requiring genuine sampling convergence for approximate attribution rather than inferring convergence from Shapley efficiency alone.
+- Add optional adaptive permutation sampling with `min_permutations`, `max_permutations`, `batch_size`, `target_ci_width`, `confidence_level`, and deterministic `seed` handling.
+- Report `permutations_used`, `stopped_early`, `sampling_precision_sufficient`, `sampling_converged`, maximum/median CI width, and batch-stability diagnostics without retaining permutation samples in memory.
+- Keep existing fixed-permutation approximate attribution behavior and public APIs working.
+
 ### Scientific/compatibility constraints
 
 - Categorical actions are never numerically subtracted or silently ordinal-encoded.
@@ -35,16 +43,6 @@ Theme: **Composable Decision Flows**.
 - Topology-changing hybrid attribution is unsupported in v0.3 rather than fabricated.
 - Sampling intervals quantify permutation-sampling uncertainty only.
 - Existing v0.1/v0.2 public APIs, binary reports, contracts, evidence and CLI behavior remain supported.
-
-## 0.2.1 - Unreleased
-
-### Changed
-
-- Separate attribution additivity (`efficiency_valid`) from Monte Carlo sampling precision and convergence semantics.
-- Preserve the legacy `converged` field while requiring genuine sampling convergence for approximate attribution rather than inferring convergence from Shapley efficiency alone.
-- Add optional adaptive permutation sampling with `min_permutations`, `max_permutations`, `batch_size`, `target_ci_width`, `confidence_level`, and deterministic `seed` handling.
-- Report `permutations_used`, `stopped_early`, `sampling_precision_sufficient`, `sampling_converged`, maximum/median CI width, and batch-stability diagnostics without retaining permutation samples in memory.
-- Keep existing fixed-permutation approximate attribution behavior and public APIs working.
 
 ## 0.2.0 - 2026-09-24
 

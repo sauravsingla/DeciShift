@@ -2,7 +2,7 @@
 
 All notable changes to DeciShift are documented here.
 
-## 0.2.0 - Unreleased
+## 0.2.0 - 2026-09-24
 
 Theme: **Trustworthy Decision-Change Evidence**.
 

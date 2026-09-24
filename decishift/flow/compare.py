@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from decishift.evidence import fingerprint_dataframe
-from decishift.flow.actions import action_display_key, action_equal_mask
+from decishift.flow.actions import action_display_key
 from decishift.flow.executor import FlowExecutor
 from decishift.flow.flow import DecisionFlow
 from decishift.flow.impact import structural_impact
@@ -41,28 +41,40 @@ def _transition_frame(
     id_column: str | None,
 ) -> pd.DataFrame:
     ids = records[id_column].to_numpy() if id_column else records.index.to_numpy()
-    changed = ~action_equal_mask(baseline_actions, candidate_actions)
+    baseline_keys = np.asarray([_action_key(value) for value in baseline_actions], dtype=object)
+    candidate_keys = np.asarray([_action_key(value) for value in candidate_actions], dtype=object)
+    changed = baseline_keys != candidate_keys
     transitions = np.asarray([
-        f"{_action_key(base)}->{_action_key(cand)}" if is_changed else "unchanged"
-        for base, cand, is_changed in zip(baseline_actions, candidate_actions, changed)
+        f"{base_key}->{candidate_key}" if is_changed else "unchanged"
+        for base_key, candidate_key, is_changed in zip(baseline_keys, candidate_keys, changed)
     ], dtype=object)
     return pd.DataFrame({
         "record_id": ids,
         "baseline_action": baseline_actions,
         "candidate_action": candidate_actions,
+        "baseline_action_key": baseline_keys,
+        "candidate_action_key": candidate_keys,
         "changed": changed.astype(bool),
         "transition": transitions,
     })
 
 
-def _distribution(values: pd.Series) -> dict[str, int]:
-    counts = values.map(_action_key).value_counts(dropna=False, sort=False)
+def _action_key_series(records: pd.DataFrame, column: str) -> pd.Series:
+    key_column = f"{column}_key"
+    if key_column in records.columns:
+        return records[key_column].astype(str)
+    return records[column].map(_action_key)
+
+
+def _distribution(records: pd.DataFrame, column: str) -> dict[str, int]:
+    keys = _action_key_series(records, column)
+    counts = keys.value_counts(dropna=False, sort=False)
     return {key: int(counts[key]) for key in sorted(counts.index, key=str)}
 
 
 def _transition_matrix(records: pd.DataFrame) -> dict[str, dict[str, int]]:
-    baseline = records["baseline_action"].map(_action_key)
-    candidate = records["candidate_action"].map(_action_key)
+    baseline = _action_key_series(records, "baseline_action")
+    candidate = _action_key_series(records, "candidate_action")
     actions = sorted(set(baseline) | set(candidate), key=str)
     table = pd.crosstab(baseline, candidate, dropna=False).reindex(index=actions, columns=actions, fill_value=0)
     return {
@@ -116,8 +128,8 @@ class FlowComparisonResult:
             "unchanged_decisions": n - changed,
             "decision_shift_rate": changed / n if n else 0.0,
             "agreement_rate": 1.0 - (changed / n) if n else 1.0,
-            "baseline_action_distribution": _distribution(self.records["baseline_action"]),
-            "candidate_action_distribution": _distribution(self.records["candidate_action"]),
+            "baseline_action_distribution": _distribution(self.records, "baseline_action"),
+            "candidate_action_distribution": _distribution(self.records, "candidate_action"),
             "transition_counts": transition_counts_dict,
             "transition_rates": transition_rates,
             "transition_matrix": _transition_matrix(self.records),

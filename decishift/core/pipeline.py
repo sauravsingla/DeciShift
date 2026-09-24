@@ -201,15 +201,28 @@ class DecisionPipeline:
                     "Configure an explicit version/digest or artifact path."
                 )
 
+    def _cache_token(self, component: str) -> str:
+        """Return an execution-local cache token.
+
+        Reproducible identities use their stable version/digest. Unstable
+        components use object identity only as an ephemeral in-process cache
+        discriminator; this token is never reported or serialized as evidence.
+        """
+        ident = self.component_identity(component)
+        if ident.reproducible:
+            return self.version_of(component)
+        value = getattr(self, component)
+        return f"runtime-only:{component}:{id(value)}"
+
     def evaluate(self, records: pd.DataFrame, *, cache: dict[tuple[str, ...], Any] | None = None) -> PipelineTrace:
         self.validate_reproducibility()
         n = len(records)
         local_cache = cache if cache is not None else {}
-        fv = self.version_of("features")
-        mv = self.version_of("model")
-        cv = self.version_of("calibrator")
-        tv = self.version_of("threshold")
-        rv = self.version_of("rules")
+        fv = self._cache_token("features")
+        mv = self._cache_token("model")
+        cv = self._cache_token("calibrator")
+        tv = self._cache_token("threshold")
+        rv = self._cache_token("rules")
 
         def cached(key: tuple[str, ...], compute):
             if key not in local_cache:
@@ -235,7 +248,19 @@ class DecisionPipeline:
         return f"unstable:{component}"
 
     def changed_components(self, other: "DecisionPipeline") -> list[str]:
-        return [name for name in COMPONENTS if self.version_of(name) != other.version_of(name)]
+        changed: list[str] = []
+        for name in COMPONENTS:
+            left = self.component_identity(name)
+            right = other.component_identity(name)
+            if left.reproducible and right.reproducible:
+                differs = self.version_of(name) != other.version_of(name)
+            else:
+                # Preserve within-process correctness without presenting runtime
+                # object identity as reproducible provenance.
+                differs = getattr(self, name) is not getattr(other, name)
+            if differs:
+                changed.append(name)
+        return changed
 
     def hybrid(self, candidate: "DecisionPipeline", candidate_components: set[str] | frozenset[str]) -> "DecisionPipeline":
         changes: dict[str, Any] = {}

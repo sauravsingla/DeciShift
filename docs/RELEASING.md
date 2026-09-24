@@ -1,21 +1,36 @@
 # Releasing DeciShift
 
-This checklist keeps GitHub, package metadata, and Zenodo archival aligned.
+This checklist keeps GitHub, PyPI package metadata, and Zenodo archival aligned around one GitHub Release.
 
-## Before the first Zenodo-backed release
+## Before the first v0.1.0 release
 
 1. Confirm the repository is public.
-2. Confirm `pyproject.toml` and `CITATION.cff` use the same version.
+2. Confirm `pyproject.toml` and `CITATION.cff` use version `0.1.0`.
 3. Confirm GitHub Actions passes on `main`.
-4. In Zenodo, open **Account settings -> GitHub** and click **Sync now**.
-5. Find `sauravsingla/DeciShift` and toggle it **ON** before creating the GitHub release.
-6. Refresh the Zenodo GitHub page and confirm DeciShift is listed under enabled repositories.
+4. Configure PyPI Trusted Publishing as described below.
+5. In Zenodo, open **Account settings -> GitHub** and click **Sync now**.
+6. Find `sauravsingla/DeciShift` and toggle it **ON** before creating the GitHub release.
+7. Refresh the Zenodo GitHub page and confirm DeciShift is listed under enabled repositories.
 
-If the repository does not appear after **Sync now**, open **Account settings -> Linked accounts**, verify the connected GitHub identity is the GitHub account that owns DeciShift, then reconnect GitHub if necessary and sync again.
+If the repository does not appear after **Sync now**, open **Account settings -> Linked accounts**, verify the connected GitHub identity is the GitHub account that owns DeciShift, reconnect GitHub if necessary, and sync again.
 
-## Create v0.1.0
+## PyPI Trusted Publisher
 
-After the Zenodo toggle is ON:
+For the first publication, use a **pending trusted publisher** on PyPI. Enter these values exactly:
+
+- PyPI project name: `decishift`
+- Owner: `sauravsingla`
+- Repository name: `DeciShift`
+- Workflow name: `release.yml`
+- Environment name: `pypi`
+
+The workflow is stored at `.github/workflows/release.yml` and publishes through PyPI OIDC Trusted Publishing. No PyPI API token or password is stored in GitHub.
+
+A pending publisher does not reserve the project name. The project is created when the first trusted upload succeeds.
+
+## One release, two publication targets
+
+After both prerequisites are ready — **Zenodo repository toggle ON** and **PyPI pending trusted publisher configured** — create one GitHub Release:
 
 1. Open the DeciShift GitHub repository.
 2. Choose **Releases -> Draft a new release**.
@@ -23,13 +38,26 @@ After the Zenodo toggle is ON:
 4. Release title: `DeciShift v0.1.0`.
 5. Use the `0.1.0` section of `CHANGELOG.md` as release notes.
 6. Publish the GitHub release.
-7. Return to Zenodo and check the release processing status.
-8. When Zenodo finishes, open the generated record and verify title, creator, license, version, repository URL, and files.
-9. Add the resulting DOI badge to `README.md` only after Zenodo has actually assigned the DOI.
+
+Publishing that single GitHub Release causes two independent release paths:
+
+- GitHub Actions builds the source distribution and wheel, verifies them, and publishes `decishift==0.1.0` to PyPI using Trusted Publishing.
+- Zenodo receives the GitHub release event and archives the tagged repository version to create the software record and DOI.
+
+## After publication
+
+1. Confirm `https://pypi.org/project/decishift/` shows version `0.1.0` and the source/wheel files.
+2. Confirm the GitHub repository links are displayed on the PyPI project page.
+3. Run `python -m pip install decishift==0.1.0` in a clean environment and run `decishift demo --rows 1000 --no-save`.
+4. Return to Zenodo and check the release processing status.
+5. When Zenodo finishes, verify title, creator, license, version, repository URL, and archived files.
+6. Add the resulting DOI badge to `README.md` only after Zenodo has actually assigned the DOI.
 
 ## Metadata rule
 
-DeciShift uses `CITATION.cff` for release metadata. Do not add `.zenodo.json` unless Zenodo-specific metadata such as grants, communities, access controls, or related identifiers is required. If both are present, Zenodo uses `.zenodo.json` and ignores `CITATION.cff` during GitHub release archiving.
+DeciShift uses `CITATION.cff` for Zenodo release metadata. Do not add `.zenodo.json` unless Zenodo-specific metadata such as grants, communities, access controls, or related identifiers is required. If both are present, Zenodo uses `.zenodo.json` and ignores `CITATION.cff` during GitHub release archiving.
+
+PyPI metadata comes from `pyproject.toml`; do not manually duplicate description, license, dependencies, Python requirements, or project links in a separate PyPI form.
 
 ## Scientific-release check
 

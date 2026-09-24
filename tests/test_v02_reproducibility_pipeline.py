@@ -107,3 +107,16 @@ def test_closure_source_identity_is_not_overclaimed():
     ident = p.component_identity("model")
     assert ident.source == "unstable"
     assert not ident.reproducible
+
+
+def test_unstable_same_class_instances_still_compare_within_process():
+    class Stateful:
+        def __init__(self, weight): self.weight = weight
+        def predict(self, x): return np.asarray(x)[:, 0] * self.weight
+    data = pd.DataFrame({"x": [0.4, 0.6]})
+    baseline = DecisionPipeline(model=Stateful(1.0), threshold=0.5)
+    candidate = DecisionPipeline(model=Stateful(2.0), threshold=0.5)
+    assert "model" in baseline.changed_components(candidate)
+    result = compare_pipelines(baseline, candidate, data)
+    assert result.summary()["changed_decisions"] == 1
+    assert result.metadata["reproducibility_status"] == "partially_reproducible"

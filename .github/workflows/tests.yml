@@ -25,3 +25,15 @@ jobs:
       - run: python -m build
       - run: python -m twine check dist/*
       - run: decishift demo --rows 1000 --no-save
+      - name: Inspect DecisionFlow graph
+        run: decishift graph examples/triage/flow.yaml
+      - name: Run, verify, and gate DecisionFlow example
+        shell: bash
+        run: |
+          set -euo pipefail
+          FLOW_OUTPUT=$(decishift compare examples/triage/flow.yaml)
+          printf '%s\n' "$FLOW_OUTPUT"
+          RUN_ID=$(printf '%s\n' "$FLOW_OUTPUT" | sed -n 's/^Run ID: //p' | tail -n 1)
+          test -n "$RUN_ID"
+          decishift verify "$RUN_ID"
+          decishift gate "$RUN_ID" --contract examples/triage/decision-contract.yaml

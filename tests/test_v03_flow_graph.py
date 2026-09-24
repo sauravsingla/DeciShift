@@ -7,22 +7,13 @@ from decishift.flow.executor import FlowExecutor
 
 
 class Column:
-    def __init__(self, column, version):
+    def __init__(self, column, version, shift=0.0):
         self.column = column
         self.version = version
+        self.shift = shift
 
     def run(self, records, inputs):
-        return pd.Series(records[self.column].to_numpy(), index=records.index)
-
-
-class Add:
-    def __init__(self, amount, version):
-        self.amount = amount
-        self.version = version
-
-    def run(self, records, inputs):
-        value = np.asarray(next(iter(inputs.values())), dtype=float)
-        return pd.Series(value + self.amount, index=records.index)
+        return pd.Series(records[self.column].to_numpy(dtype=float) + self.shift, index=records.index)
 
 
 class Merge:
@@ -94,19 +85,17 @@ def test_graph_cache_reuses_unaffected_branch_and_invalidates_descendants():
         DecisionNode("final", Final(), ("merge",), version="f1"),
     ], "final")
     candidate = DecisionFlow([
-        DecisionNode("left", Add(0.6, "l2"), ("right",), version="l2"),
+        DecisionNode("left", Column("x", "l2", shift=0.6), version="l2"),
         DecisionNode("right", Column("y", "r1"), version="r1"),
         DecisionNode("merge", Merge(), ("left", "right"), version="m1"),
         DecisionNode("final", Final(), ("merge",), version="f1"),
     ], "final")
-    # This candidate intentionally changes an edge too; independent execution is
-    # still valid and the unchanged right branch remains reusable.
     executor = FlowExecutor(records)
     first = executor.evaluate(baseline)
     second = executor.evaluate(candidate)
     assert first.cache_misses == 4
-    assert second.cache_hits >= 1
-    assert second.cache_misses >= 1
+    assert second.cache_hits == 1  # unchanged right branch
+    assert second.cache_misses == 3  # changed left + merge + final descendants
     assert second.actions.tolist() != first.actions.tolist()
 
 

@@ -1,10 +1,9 @@
 # DeciShift
 
 [![CI](https://github.com/sauravsingla/DeciShift/actions/workflows/tests.yml/badge.svg)](https://github.com/sauravsingla/DeciShift/actions/workflows/tests.yml)
-[![PyPI version](https://img.shields.io/badge/PyPI-v0.2.0-blue.svg)](https://pypi.org/project/decishift/0.2.0/)
-[![Python versions](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://pypi.org/project/decishift/0.2.0/)
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22934681.svg)](https://zenodo.org/records/22934681)
+[![PyPI version](https://img.shields.io/badge/PyPI-v0.3.0-blue.svg)](https://pypi.org/project/decishift/0.3.0/)
+[![Python versions](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://pypi.org/project/decishift/0.3.0/)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](https://github.com/sauravsingla/DeciShift/blob/main/LICENSE)
 
 **Explain why decisions changed between versions of an ML decision system.**
 
@@ -14,15 +13,32 @@ Git explains **which code changed**. Model monitoring explains **whether metrics
 
 DeciShift is CPU-first, local-first, offline-capable and framework-agnostic. It requires no GPU, cloud service, database, Docker runtime, LLM/API, telemetry, model registry or hosted dashboard.
 
-## v0.3 target: Composable Decision Flows
+## Install
 
-`DecisionPipeline` remains the backwards-compatible v0.1/v0.2 API for a simple binary path:
+The current release is **v0.3.0**:
+
+```bash
+python -m pip install --upgrade decishift==0.3.0
+decishift demo --rows 1000 --no-save
+```
+
+For development from a source checkout:
+
+```bash
+python -m pip install -e ".[dev]"
+decishift graph examples/triage/flow.yaml
+decishift compare examples/triage/flow.yaml
+```
+
+## v0.3.0 — Composable Decision Flows
+
+`DecisionPipeline` remains the backwards-compatible API for the original simple binary path:
 
 ```text
 features -> model -> calibrator -> threshold -> rules -> binary decision
 ```
 
-v0.3 adds `DecisionFlow` for deterministic row-aligned DAGs:
+v0.3.0 adds `DecisionFlow` for deterministic row-aligned DAGs:
 
 ```text
 features
@@ -56,25 +72,6 @@ final_action
 
 Structural descendants are graph reachability only. They are **not causal impact** and do not imply that every downstream node or historical action actually changed.
 
-## Install
-
-The latest published package remains v0.2.0 until v0.3 is explicitly released:
-
-```bash
-python -m pip install --upgrade decishift==0.2.0
-decishift demo
-```
-
-For v0.3 development from this repository:
-
-```bash
-python -m pip install -e '.[dev]'
-decishift graph examples/triage/flow.yaml
-decishift compare examples/triage/flow.yaml
-```
-
-No v0.3 GitHub/PyPI/Zenodo release is created merely by developing or merging this code.
-
 ## DecisionFlow
 
 A node is one executable versioned unit with declared dependencies:
@@ -85,27 +82,37 @@ from decishift import DecisionFlow, DecisionNode
 flow = DecisionFlow(
     nodes=[
         DecisionNode(
+            name="features",
+            component=features,
+            version="features_v2",
+        ),
+        DecisionNode(
             name="risk_model",
             component=risk_model,
             depends_on=("features",),
             version="risk_model_v13",
             group="predictive_models",
         ),
+        DecisionNode(
+            name="policy",
+            component=policy,
+            depends_on=("risk_model",),
+            version="policy_v4",
+        ),
+        DecisionNode(
+            name="final_action",
+            component=final_action,
+            depends_on=("policy",),
+            version="rules_v7",
+        ),
     ],
     final_node="final_action",
 )
 ```
 
-Components normally implement:
+Components may expose `run(records, inputs)` or be compatible local callables. Exceptions raised inside user components are not silently reinterpreted as calling-convention errors.
 
-```python
-def run(records, inputs):
-    ...
-```
-
-Every node output must stay aligned to the same historical records. NumPy vectors/matrices and pandas Series/DataFrames are supported; pandas index reordering is rejected.
-
-DAG validation checks duplicate/missing nodes, self-dependencies, cycles, final-node validity and deterministic topological ordering using standard Python data structures—no NetworkX dependency.
+Every node output must remain aligned to the same historical records. NumPy vectors/matrices and pandas Series/DataFrames are supported; pandas index reordering is rejected. DAG validation checks duplicate/missing nodes, self-dependencies, cycles, final-node validity and deterministic topological ordering using standard Python data structures—no NetworkX dependency.
 
 ## Multi-action comparison
 
@@ -117,6 +124,8 @@ record_id  baseline_action  candidate_action  changed  transition
 102        inspect          inspect           false    unchanged
 103        inspect          service           true     inspect->service
 ```
+
+A final action must be one non-null, hashable, JSON-serializable scalar per record. Numeric ordering is not required or inferred.
 
 Reports include action distributions, transition counts/rates, a transition matrix and the most frequent changed transitions.
 
@@ -135,21 +144,19 @@ For candidate-action support:
 v(S) = 1 if hybrid_action(S) == candidate_action else 0
 ```
 
-Exact attribution evaluates `2^K` changed nodes/groups up to a safety limit. Approximate attribution samples permutations with streaming uncertainty and optional adaptive stopping.
+Exact attribution evaluates `2^K` changed nodes/groups up to a safety limit. Approximate attribution samples permutations with streaming uncertainty and optional adaptive stopping. Nodes may belong to explicit attribution groups; DeciShift never invents groups automatically.
 
-Nodes may belong to explicit attribution groups. DeciShift never invents groups automatically.
-
-Pairwise flow interactions use the numeric target and also identify `interaction_only_transition` when neither node alone changes the baseline action but their pair does.
+Pairwise flow interactions use the numeric target and can also identify `interaction_only_transition` when neither node alone changes the baseline action but their pair does.
 
 All attribution is **software counterfactual attribution**. It does not establish real-world causal effects.
 
 ## Efficiency and sampling convergence
 
-v0.3 includes the backward-compatible attribution correction prepared as a 0.2.1-quality patch:
+v0.3.0 separates three ideas that should not be conflated:
 
 - `efficiency_valid` — contributions add back to the observed software-output change;
 - `sampling_precision_sufficient` — confidence intervals satisfy the configured width target;
-- `sampling_converged` — precision is sufficient and contribution estimates are stable across batches.
+- `sampling_converged` — precision is sufficient and contribution estimates are stable across sampling batches.
 
 Shapley efficiency is **not** treated as Monte Carlo convergence.
 
@@ -238,7 +245,7 @@ outcome:
 
 Operational actions are not automatically treated as predicted labels.
 
-An advanced final node may return `DecisionOutput(action=..., score=..., margin=...)`. Fragility is computed only when a meaningful numeric margin is explicitly supplied. DeciShift never invents a margin for categorical actions.
+An advanced final node may return a row-aligned `DecisionOutput(action=..., score=..., margin=...)`, or a per-record sequence of `DecisionOutput` objects. Fragility is computed only when a meaningful numeric margin is explicitly supplied. DeciShift never invents a margin for categorical actions.
 
 ## CLI
 
@@ -267,7 +274,7 @@ All core commands work locally/offline. HTML reports are self-contained and requ
 
 ## Synthetic triage example
 
-`examples/triage/` contains a general-purpose equipment-maintenance triage flow:
+The source repository includes `examples/triage/`, a general-purpose equipment-maintenance triage flow:
 
 ```text
 sensor_features
@@ -277,7 +284,7 @@ sensor_features
       └── downtime_model ──────┘
 ```
 
-Actions are `monitor`, `inspect`, and `service`. Baseline/candidate versions change a sensor transform, risk model, policy and safety rule and generate real categorical transitions on the bundled synthetic records. No fraud, payments, mule-detection or employer-specific data is used.
+Actions are `monitor`, `inspect`, and `service`. Baseline/candidate versions change a sensor transform, risk model, policy and safety rule and generate categorical transitions on the bundled synthetic records. No fraud, payments, mule-detection or employer-specific data is used.
 
 ## Benchmarks
 
@@ -293,12 +300,12 @@ DecisionFlow benchmark:
 python benchmarks/benchmark_flow_cpu.py
 ```
 
-The flow benchmark executes linear 5-node and branched 8-node cases at 10,000 and 100,000 rows, measuring wall-clock time, Python peak memory, cache hits/misses, nodes executed/reused, exact attribution where feasible and adaptive approximate attribution. No benchmark numbers are fabricated or hard-coded into this README.
+The flow benchmark executes linear 5-node and branched 8-node cases at 10,000 and 100,000 rows, measuring wall-clock time, `tracemalloc` peak Python memory, cache hits/misses, nodes executed/reused, exact attribution where feasible and adaptive approximate attribution. No benchmark numbers are fabricated or hard-coded into this README.
 
 ## Tests and quality gate
 
 ```bash
-python -m pip install -e '.[dev]'
+python -m pip install -e ".[dev]"
 ruff check .
 pytest --cov=decishift
 python -m build
@@ -310,13 +317,14 @@ CI runs the quality gate on Python 3.11, 3.12 and 3.13 and additionally exercise
 
 ## Documentation
 
-- [Decision flows](docs/decision-flows.md)
-- [Multi-action decisions](docs/multi-action.md)
-- [Flow attribution](docs/flow-attribution.md)
-- [Structural impact](docs/structural-impact.md)
-- [Adaptive attribution](docs/adaptive-attribution.md)
-- [Decision Contracts](docs/decision-contracts.md)
-- [Limitations](docs/limitations.md)
+- [Decision flows](https://github.com/sauravsingla/DeciShift/blob/main/docs/decision-flows.md)
+- [Multi-action decisions](https://github.com/sauravsingla/DeciShift/blob/main/docs/multi-action.md)
+- [Flow attribution](https://github.com/sauravsingla/DeciShift/blob/main/docs/flow-attribution.md)
+- [Structural impact](https://github.com/sauravsingla/DeciShift/blob/main/docs/structural-impact.md)
+- [Adaptive attribution](https://github.com/sauravsingla/DeciShift/blob/main/docs/adaptive-attribution.md)
+- [Decision Contracts](https://github.com/sauravsingla/DeciShift/blob/main/docs/decision-contracts.md)
+- [Evidence integrity](https://github.com/sauravsingla/DeciShift/blob/main/docs/evidence-integrity.md)
+- [Limitations](https://github.com/sauravsingla/DeciShift/blob/main/docs/limitations.md)
 
 ## Research positioning
 
@@ -326,8 +334,13 @@ Its specific object of analysis is the **decision/action transition produced by 
 
 Results depend on supplied historical records. Structural reachability is not causal impact. Software counterfactual attribution does not establish real-world causality. Sampling intervals quantify permutation-sampling uncertainty only.
 
-## License and citation
+## Release, license and citation
 
-Apache-2.0. See [LICENSE](LICENSE). Citation metadata is provided in `CITATION.cff`.
+Current release: **v0.3.0 — Composable Decision Flows**.
 
-The latest published archive remains **v0.2.0** at Zenodo record [22934681](https://zenodo.org/records/22934681) until a future release is explicitly published.
+- GitHub release: https://github.com/sauravsingla/DeciShift/releases/tag/v0.3.0
+- PyPI: https://pypi.org/project/decishift/0.3.0/
+- License: [Apache-2.0](https://github.com/sauravsingla/DeciShift/blob/main/LICENSE)
+- Citation metadata: [`CITATION.cff`](https://github.com/sauravsingla/DeciShift/blob/main/CITATION.cff)
+
+The Zenodo v0.3.0 archive is still being indexed. The README intentionally does **not** present the older v0.2 DOI as the current v0.3 DOI; the v0.3 DOI will be added after the new archive is publicly visible.

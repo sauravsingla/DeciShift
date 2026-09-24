@@ -8,7 +8,7 @@ import pandas as pd
 import yaml
 
 from decishift.diff.compare import ComparisonResult
-from decishift.flow.actions import action_identity
+from decishift.flow.actions import action_display_key
 
 EXIT_PASS = 0
 EXIT_USAGE = 2
@@ -93,13 +93,16 @@ def _evaluate_flow_action_rules(result, contract: dict[str, Any], checks: list[C
     candidate_actions = contract.get("candidate_actions") or {}
     if not isinstance(candidate_actions, dict):
         raise ValueError("contract.candidate_actions must be a mapping")
-    action_identities = records["candidate_action"].map(action_identity)
+    if "candidate_action_key" in records.columns:
+        action_keys = records["candidate_action_key"].astype(str)
+    else:
+        action_keys = records["candidate_action"].map(action_display_key)
     for action, limits in sorted(candidate_actions.items(), key=lambda item: str(item[0])):
         limits = limits or {}
         if not isinstance(limits, dict):
             raise ValueError(f"contract.candidate_actions.{action} must be a mapping")
-        requested_identity = action_identity(action)
-        count = int((action_identities == requested_identity).sum())
+        requested_key = action_display_key(action)
+        count = int((action_keys == requested_key).sum())
         rate = count / n if n else 0.0
         _limit(checks, f"candidate action {action} rate", rate, limits.get("max_rate"))
         _limit(checks, f"candidate action {action} count", count, limits.get("max_count"))

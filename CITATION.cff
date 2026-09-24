@@ -8,14 +8,15 @@ authors:
 repository-code: "https://github.com/sauravsingla/DeciShift"
 url: "https://github.com/sauravsingla/DeciShift"
 license: Apache-2.0
-version: 0.2.0
+version: 0.3.0
 date-released: 2026-09-24
-doi: "10.5281/zenodo.22934681"
 keywords:
   - machine learning
   - decision systems
   - model diffing
   - counterfactual attribution
+  - decision flows
+  - multi-action decisions
   - MLOps
   - evidence integrity
   - decision contracts

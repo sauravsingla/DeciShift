@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -8,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 from decishift.evidence import fingerprint_dataframe
+from decishift.flow.actions import action_display_key, action_equal_mask
 from decishift.flow.executor import FlowExecutor
 from decishift.flow.flow import DecisionFlow
 from decishift.flow.impact import structural_impact
@@ -29,13 +29,8 @@ def _validate_ids(records: pd.DataFrame, id_column: str | None, *, allow_duplica
 
 
 def _action_key(value: Any) -> str:
-    """Stable display/evidence key without collapsing `1` and `"1"`."""
-    if isinstance(value, np.generic):
-        value = value.item()
-    if isinstance(value, str):
-        return value
-    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
-    return f"{type(value).__name__}:{encoded}"
+    """Stable readable evidence key for categorical actions."""
+    return action_display_key(value)
 
 
 def _transition_frame(
@@ -46,7 +41,7 @@ def _transition_frame(
     id_column: str | None,
 ) -> pd.DataFrame:
     ids = records[id_column].to_numpy() if id_column else records.index.to_numpy()
-    changed = baseline_actions != candidate_actions
+    changed = ~action_equal_mask(baseline_actions, candidate_actions)
     transitions = np.asarray([
         f"{_action_key(base)}->{_action_key(cand)}" if is_changed else "unchanged"
         for base, cand, is_changed in zip(baseline_actions, candidate_actions, changed)

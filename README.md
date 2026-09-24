@@ -10,10 +10,23 @@ DeciShift is a CPU-first, local-first Python framework for comparing two version
 
 ## Five-minute demo
 
+Install directly from GitHub:
+
 ```bash
+python -m pip install git+https://github.com/sauravsingla/DeciShift.git
+decishift demo
+```
+
+Or clone the repository for development:
+
+```bash
+git clone https://github.com/sauravsingla/DeciShift.git
+cd DeciShift
 python -m pip install -e .
 decishift demo
 ```
+
+The distribution is already packaged as `decishift` version `0.1.0`; the shorter `pip install decishift` command becomes available once the distribution is published to PyPI.
 
 The demo uses a synthetic **equipment-maintenance intervention** problem. It makes no network calls, uses no LLM API, requires no GPU, and uploads no data.
 

@@ -75,7 +75,7 @@ class DecisionFlow:
             "nodes": [
                 {
                     "name": node.name,
-                    "depends_on": list(node.depends_on),
+                    "depends_on": sorted(node.depends_on),
                     "group": node.group,
                 }
                 for node in sorted(self.nodes, key=lambda item: item.name)

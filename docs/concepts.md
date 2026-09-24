@@ -19,3 +19,7 @@ A saved run contains record comparisons, attribution, interactions, cohorts, rep
 ## Decision Contract
 
 A Decision Contract is a user-authored set of deterministic limits for observed behavioral change. DeciShift never invents acceptable limits. Passing a contract means only that those configured checks passed.
+
+## Dynamic thresholds
+
+YAML thresholds may remain numeric or use a local `factory`/`object`. A callable threshold may accept `(records, calibrated_scores)` or `(records)`. DeciShift selects the supported signature before invocation; an exception raised inside the threshold remains visible as a component execution error rather than being mistaken for an arity mismatch.

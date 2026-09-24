@@ -5,6 +5,7 @@ from collections.abc import Iterable
 import pandas as pd
 
 from decishift.cohorts.analyzer import select_cohort_columns, wilson_interval
+from decishift.flow.actions import action_display_key, action_equal_mask, action_identity
 from decishift.flow.compare import FlowComparisonResult
 
 
@@ -107,6 +108,22 @@ def analyze_flow_cohorts(
     )
 
 
+def _report_label_mapping(*series: pd.Series) -> dict[str, str]:
+    """Map canonical action identities to readable labels without collisions."""
+    identities_to_display: dict[str, str] = {}
+    display_to_identities: dict[str, set[str]] = {}
+    for values in series:
+        for value in values:
+            identity = action_identity(value)
+            display = action_display_key(value)
+            identities_to_display.setdefault(identity, display)
+            display_to_identities.setdefault(display, set()).add(identity)
+    return {
+        identity: (display if len(display_to_identities[display]) == 1 else identity)
+        for identity, display in identities_to_display.items()
+    }
+
+
 def analyze_multiclass_outcomes(
     source_records: pd.DataFrame,
     result: FlowComparisonResult,
@@ -123,8 +140,8 @@ def analyze_multiclass_outcomes(
         raise ValueError(f"Outcome column '{outcome_column}' contains null values")
     baseline = result.records["baseline_action"].reset_index(drop=True)
     candidate = result.records["candidate_action"].reset_index(drop=True)
-    base_correct = baseline == actual
-    cand_correct = candidate == actual
+    base_correct = pd.Series(action_equal_mask(baseline.to_numpy(), actual.to_numpy()))
+    cand_correct = pd.Series(action_equal_mask(candidate.to_numpy(), actual.to_numpy()))
     n = len(actual)
 
     transitions = {
@@ -133,22 +150,28 @@ def analyze_multiclass_outcomes(
         "incorrect->correct": int((~base_correct & cand_correct).sum()),
         "incorrect->incorrect": int((~base_correct & ~cand_correct).sum()),
     }
-    labels = sorted({str(v) for v in actual} | {str(v) for v in baseline} | {str(v) for v in candidate})
 
-    def confusion(predicted: pd.Series) -> dict[str, dict[str, int]]:
-        a = actual.map(str)
-        p = predicted.map(str)
-        table = pd.crosstab(a, p).reindex(index=labels, columns=labels, fill_value=0)
-        return {row: {col: int(table.loc[row, col]) for col in labels} for row in labels}
+    actual_identity = actual.map(action_identity)
+    baseline_identity = baseline.map(action_identity)
+    candidate_identity = candidate.map(action_identity)
+    display = _report_label_mapping(actual, baseline, candidate)
+    identities = sorted(set(actual_identity) | set(baseline_identity) | set(candidate_identity))
+    labels = [display[identity] for identity in identities]
 
-    candidate_str = candidate.map(str)
-    actual_str = actual.map(str)
+    def confusion(predicted_identity: pd.Series) -> dict[str, dict[str, int]]:
+        table = pd.crosstab(actual_identity, predicted_identity).reindex(index=identities, columns=identities, fill_value=0)
+        return {
+            display[row]: {display[col]: int(table.loc[row, col]) for col in identities}
+            for row in identities
+        }
+
     per_class = {}
-    for label in labels:
-        support = int((actual_str == label).sum())
-        tp = int(((candidate_str == label) & (actual_str == label)).sum())
-        fp = int(((candidate_str == label) & (actual_str != label)).sum())
-        fn = int(((candidate_str != label) & (actual_str == label)).sum())
+    for identity in identities:
+        label = display[identity]
+        support = int((actual_identity == identity).sum())
+        tp = int(((candidate_identity == identity) & (actual_identity == identity)).sum())
+        fp = int(((candidate_identity == identity) & (actual_identity != identity)).sum())
+        fn = int(((candidate_identity != identity) & (actual_identity == identity)).sum())
         per_class[label] = {
             "support": support,
             "precision": (tp / (tp + fp)) if tp + fp else None,
@@ -164,8 +187,9 @@ def analyze_multiclass_outcomes(
         "candidate_accuracy": candidate_accuracy,
         "accuracy_delta": candidate_accuracy - baseline_accuracy,
         "correctness_transitions": transitions,
-        "baseline_confusion_matrix": confusion(baseline),
-        "candidate_confusion_matrix": confusion(candidate),
+        "baseline_confusion_matrix": confusion(baseline_identity),
+        "candidate_confusion_matrix": confusion(candidate_identity),
         "per_class_candidate": per_class,
+        "class_labels": labels,
         "note": "Classification metrics are reported only because actions_are_predictions was explicitly configured true.",
     }

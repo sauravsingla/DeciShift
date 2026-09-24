@@ -22,6 +22,8 @@ An action is a label, not an ordered numeric quantity. DeciShift therefore **nev
 
 The final node must produce exactly one action per historical record. Actions are non-null by default and must be scalar, hashable and JSON-serializable. Row count and pandas index order must remain aligned with the source records.
 
+Categorical identity is type-aware. Python values that compare equal numerically but have different scalar types, such as boolean `True` and integer `1`, remain distinct DecisionFlow actions. Ordinary string actions stay readable in reports, while evidence keys disambiguate typed scalar labels when necessary.
+
 A comparison records:
 
 ```text

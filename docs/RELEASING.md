@@ -2,60 +2,82 @@
 
 This checklist keeps GitHub, PyPI package metadata, and Zenodo archival aligned around one GitHub Release.
 
-## Before the first v0.1.0 release
+## One-time configuration
 
-1. Confirm the repository is public.
-2. Confirm `pyproject.toml` and `CITATION.cff` use version `0.1.0`.
-3. Confirm GitHub Actions passes on `main`.
-4. Configure PyPI Trusted Publishing as described below.
-5. In Zenodo, open **Account settings -> GitHub** and click **Sync now**.
-6. Find `sauravsingla/DeciShift` and toggle it **ON** before creating the GitHub release.
-7. Refresh the Zenodo GitHub page and confirm DeciShift is listed under enabled repositories.
+These items should remain configured for the repository:
 
-If the repository does not appear after **Sync now**, open **Account settings -> Linked accounts**, verify the connected GitHub identity is the GitHub account that owns DeciShift, reconnect GitHub if necessary, and sync again.
+- the GitHub repository is public;
+- PyPI Trusted Publishing is configured for project `decishift`, owner `sauravsingla`, repository `DeciShift`, workflow `release.yml`, and environment `pypi`;
+- Zenodo is connected to the GitHub account and `sauravsingla/DeciShift` is enabled in the Zenodo GitHub integration.
 
-## PyPI Trusted Publisher
+The workflow is stored at `.github/workflows/release.yml` and publishes through PyPI OIDC Trusted Publishing. No PyPI API token or password should be stored in GitHub.
 
-For the first publication, use a **pending trusted publisher** on PyPI. Enter these values exactly:
+## Prepare a new release
 
-- PyPI project name: `decishift`
-- Owner: `sauravsingla`
-- Repository name: `DeciShift`
-- Workflow name: `release.yml`
-- Environment name: `pypi`
+For every release `X.Y.Z`:
 
-The workflow is stored at `.github/workflows/release.yml` and publishes through PyPI OIDC Trusted Publishing. No PyPI API token or password is stored in GitHub.
+1. Update `pyproject.toml` to version `X.Y.Z`.
+2. Update `CITATION.cff` to version `X.Y.Z` and the release date.
+3. Remove any previous version-specific `doi:` from `CITATION.cff` before creating the new tag. The new version DOI does not exist until Zenodo archives the release.
+4. Add the release section to `CHANGELOG.md` and replace `Unreleased` with the release date when the contents are final.
+5. Confirm README examples and compatibility statements still match the implementation.
+6. Run the complete quality gate on the exact `main` commit intended for release:
 
-A pending publisher does not reserve the project name. The project is created when the first trusted upload succeeds.
+```bash
+python -m pip install -e '.[dev]'
+ruff check .
+pytest --cov=decishift
+python -m build
+python -m twine check dist/*
+decishift demo --rows 1000 --no-save
+```
 
-## One release, two publication targets
+7. Confirm GitHub Actions passes on `main`.
+8. In Zenodo, confirm the DeciShift GitHub integration is still enabled before publishing the GitHub Release.
 
-After both prerequisites are ready — **Zenodo repository toggle ON** and **PyPI pending trusted publisher configured** — create one GitHub Release:
+## Publish one GitHub Release
 
-1. Open the DeciShift GitHub repository.
-2. Choose **Releases -> Draft a new release**.
-3. Create tag `v0.1.0` from `main`.
-4. Release title: `DeciShift v0.1.0`.
-5. Use the `0.1.0` section of `CHANGELOG.md` as release notes.
-6. Publish the GitHub release.
+Create a GitHub Release from the verified `main` commit:
 
-Publishing that single GitHub Release causes two independent release paths:
+1. Tag: `vX.Y.Z`.
+2. Target: the exact verified release commit on `main`.
+3. Release title: `DeciShift vX.Y.Z` plus a short descriptive subtitle when useful.
+4. Use the matching `CHANGELOG.md` section as the basis for release notes.
+5. Do not mark a stable release as a pre-release.
+6. Publish the release once.
 
-- GitHub Actions builds the source distribution and wheel, verifies them, and publishes `decishift==0.1.0` to PyPI using Trusted Publishing.
-- Zenodo receives the GitHub release event and archives the tagged repository version to create the software record and DOI.
+Publishing that single GitHub Release starts two independent publication paths:
 
-## After publication
+- GitHub Actions builds the source distribution and wheel, verifies them, and publishes `decishift==X.Y.Z` to PyPI using Trusted Publishing.
+- Zenodo receives the GitHub release event and archives the tagged repository version as a new linked software record with a version-specific DOI.
 
-1. Confirm `https://pypi.org/project/decishift/` shows version `0.1.0` and the source/wheel files.
-2. Confirm the GitHub repository links are displayed on the PyPI project page.
-3. Run `python -m pip install decishift==0.1.0` in a clean environment and run `decishift demo --rows 1000 --no-save`.
-4. Return to Zenodo and check the release processing status.
-5. When Zenodo finishes, verify title, creator, license, version, repository URL, and archived files.
-6. Add the resulting DOI badge to `README.md` only after Zenodo has actually assigned the DOI.
+Do not manually upload the same version to PyPI after the trusted-publishing job has succeeded. PyPI release files are immutable; corrections require a new package version.
+
+## Verify publication
+
+After publication:
+
+1. Confirm the GitHub Release points to the intended commit and tag.
+2. Confirm the release workflow build job succeeded.
+3. Confirm the PyPI trusted-publishing job succeeded.
+4. In a clean environment, install the exact public version and run the demo:
+
+```bash
+python -m pip install --no-cache-dir decishift==X.Y.Z
+decishift demo --rows 1000 --no-save
+```
+
+5. Confirm Zenodo created a new version in the existing DeciShift version lineage.
+6. Verify the Zenodo version number, title, creator, license, repository URL, archived files, and version-specific DOI.
+7. Add the new version-specific DOI to `CITATION.cff` on `main` only after Zenodo has actually assigned it.
+8. Update the README citation section to identify both the new version DOI and the persistent all-versions concept DOI.
+9. Run GitHub Actions again on the post-release metadata commit.
+
+The persistent DeciShift concept DOI is `10.5281/zenodo.22932948`. Use a version DOI when citing the exact archived release and the concept DOI when linking to the evolving project across versions.
 
 ## Metadata rule
 
-DeciShift uses `CITATION.cff` for Zenodo release metadata. Do not add `.zenodo.json` unless Zenodo-specific metadata such as grants, communities, access controls, or related identifiers is required. If both are present, Zenodo uses `.zenodo.json` and ignores `CITATION.cff` during GitHub release archiving.
+DeciShift uses `CITATION.cff` for software citation metadata. Do not add `.zenodo.json` unless Zenodo-specific metadata such as grants, communities, access controls, or related identifiers is required and the precedence behavior has been rechecked against current Zenodo documentation.
 
 PyPI metadata comes from `pyproject.toml`; do not manually duplicate description, license, dependencies, Python requirements, or project links in a separate PyPI form.
 

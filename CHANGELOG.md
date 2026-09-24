@@ -2,6 +2,16 @@
 
 All notable changes to DeciShift are documented here.
 
+## 0.2.1 - Unreleased
+
+### Changed
+
+- Separate attribution additivity (`efficiency_valid`) from Monte Carlo sampling precision and convergence semantics.
+- Preserve the legacy `converged` field while requiring genuine sampling convergence for approximate attribution rather than inferring convergence from Shapley efficiency alone.
+- Add optional adaptive permutation sampling with `min_permutations`, `max_permutations`, `batch_size`, `target_ci_width`, `confidence_level`, and deterministic `seed` handling.
+- Report `permutations_used`, `stopped_early`, `sampling_precision_sufficient`, `sampling_converged`, maximum/median CI width, and batch-stability diagnostics without retaining permutation samples in memory.
+- Keep existing fixed-permutation approximate attribution behavior and public APIs working.
+
 ## 0.2.0 - 2026-09-24
 
 Theme: **Trustworthy Decision-Change Evidence**.

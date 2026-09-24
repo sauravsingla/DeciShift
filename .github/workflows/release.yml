@@ -3,6 +3,12 @@ name: release
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to build and publish"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -11,8 +17,12 @@ jobs:
   build:
     name: build distributions
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -45,7 +55,7 @@ jobs:
                   f"Runtime version {runtime_version} does not match pyproject version {package_version}."
               )
 
-          release_tag = os.environ["GITHUB_REF_NAME"]
+          release_tag = os.environ["RELEASE_TAG"]
           expected_tag = f"v{package_version}"
           if release_tag != expected_tag:
               raise SystemExit(

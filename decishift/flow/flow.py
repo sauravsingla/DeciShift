@@ -117,9 +117,17 @@ class DecisionFlow:
 
     def attribution_groups(self, changed_nodes: list[str]) -> dict[str, tuple[str, ...]]:
         groups: dict[str, list[str]] = {}
+        player_kinds: dict[str, str] = {}
         for name in changed_nodes:
             node = self.node(name)
             player = node.group or name
+            kind = "group" if node.group else "node"
+            previous_kind = player_kinds.get(player)
+            if previous_kind is not None and previous_kind != kind:
+                raise FlowValidationError(
+                    f"Attribution group name '{player}' collides with an ungrouped node name; rename the group"
+                )
+            player_kinds[player] = kind
             groups.setdefault(player, []).append(name)
         return {key: tuple(sorted(value)) for key, value in sorted(groups.items())}
 

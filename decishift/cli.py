@@ -6,14 +6,29 @@ from typing import Annotated
 
 import typer
 
-from decishift.attribution import approximate_attribution, exact_attribution, pairwise_interactions
-from decishift.cohorts import analyze_cohorts
-from decishift.config import build_pipeline, load_data, load_yaml
+from decishift.attribution import (
+    approximate_attribution,
+    calculate_attribution_diagnostics,
+    exact_attribution,
+    pairwise_interactions,
+)
+from decishift.cohorts import analyze_cohorts, select_cohort_columns
+from decishift.config import build_pipeline, configuration_sha256, load_data, load_yaml, resolve_data_path
+from decishift.contracts import (
+    EXIT_INTEGRITY_FAILURE,
+    evaluate_contract,
+    load_contract,
+    render_contract_terminal,
+)
 from decishift.core.exceptions import DeciShiftError
 from decishift.demo import run_demo
 from decishift.diff.compare import compare_pipelines, compare_predictions
-from decishift.reports import render_json, render_markdown, render_terminal
+from decishift.evidence import sha256_bytes, sha256_file
+from decishift.fragility import analyze_fragility
+from decishift.outcome import analyze_outcomes
+from decishift.reports import render_html, render_json, render_markdown, render_terminal
 from decishift.replay.engine import HybridReplayCache
+from decishift.run_compare import compare_saved_runs
 from decishift.store import RunStore
 
 app = typer.Typer(no_args_is_help=True, help="Explain why decisions changed between ML system versions.")
@@ -26,7 +41,9 @@ def _render(result, format: str) -> str:
         return render_json(result)
     if format == "markdown":
         return render_markdown(result)
-    raise typer.BadParameter("format must be terminal, json, or markdown")
+    if format == "html":
+        return render_html(result)
+    raise typer.BadParameter("format must be terminal, json, markdown, or html")
 
 
 @app.command()
@@ -40,15 +57,87 @@ def demo(
     if save:
         run_id = RunStore().save(result)
         typer.echo(f"\nRun ID: {run_id}")
-        typer.echo(f"Explain a record: decishift explain --run {run_id} --id <RECORD_ID>")
+        typer.echo(f"Verify evidence: decishift verify {run_id}")
+        typer.echo(f"HTML report: decishift report {run_id} --format html")
 
 
-def _combined_compare(config_path: Path, attribution_mode: str, permutations: int):
+def _attach_attribution(result, baseline, candidate, frame, attribution_mode: str, permutations: int, seed: int, confidence_level: float):
+    if not result.changed_components or attribution_mode == "none":
+        return
+    replay = HybridReplayCache(baseline, candidate, frame)
+    if attribution_mode == "exact":
+        result.attribution = exact_attribution(baseline, candidate, frame, result=result, cache=replay)
+        method = "exact"
+        params = {"max_components": 10}
+        perms = None
+        tolerance = 1e-9
+    elif attribution_mode == "approximate":
+        result.attribution = approximate_attribution(
+            baseline, candidate, frame, result=result, permutations=permutations,
+            seed=seed, confidence_level=confidence_level, cache=replay,
+        )
+        method = "approximate"
+        params = {"permutations": permutations, "confidence_level": confidence_level}
+        perms = permutations
+        tolerance = 1e-8
+    else:
+        raise typer.BadParameter("attribution must be exact, approximate, or none")
+    result.interactions = pairwise_interactions(baseline, candidate, frame, result=result, cache=replay)
+    result.metadata.update({
+        "hybrid_pipeline_evaluations": replay.evaluations,
+        "attribution_method": method,
+        "attribution_parameters": params,
+        "random_seed": seed if method == "approximate" else None,
+    })
+    result.diagnostics = calculate_attribution_diagnostics(
+        result,
+        result.attribution,
+        method=method,
+        hybrid_evaluations=replay.evaluations,
+        permutations=perms,
+        tolerance=tolerance,
+    )
+
+
+def _post_analysis(cfg, frame, result, *, id_column: str | None):
+    if cfg.get("auto_cohorts", True):
+        cohort_columns = cfg.get("cohorts")
+        if cohort_columns is None:
+            excluded = set()
+            if cfg.get("mode") == "predictions-only":
+                excluded.update((cfg.get("columns") or {}).values())
+            cohort_columns, reasons = select_cohort_columns(
+                frame,
+                id_column=id_column,
+                excluded_columns=excluded,
+                max_categories=int(cfg.get("max_cohort_categories", 30)),
+                enable_temporal=bool(cfg.get("temporal_cohorts", False)),
+            )
+            result.metadata["cohort_auto_exclusions"] = reasons
+        result.cohorts = analyze_cohorts(
+            frame,
+            result,
+            columns=cohort_columns,
+            id_column=id_column,
+            min_size=int(cfg.get("min_cohort_size", 30)),
+            max_categories=int(cfg.get("max_cohort_categories", 30)),
+            confidence_level=float(cfg.get("cohort_confidence_level", 0.95)),
+            enable_temporal=bool(cfg.get("temporal_cohorts", False)),
+        )
+    if cfg.get("outcome_column"):
+        analyze_outcomes(frame, result, outcome_column=str(cfg["outcome_column"]))
+    if cfg.get("fragility", True):
+        fragility_cfg = cfg.get("fragility") if isinstance(cfg.get("fragility"), dict) else {}
+        analyze_fragility(result, boundary_bands=fragility_cfg.get("boundary_bands", (0.01, 0.05)))
+
+
+def _combined_compare(config_path: Path, attribution_mode: str, permutations: int, seed: int, confidence_level: float):
     cfg = load_yaml(config_path)
     base_dir = config_path.parent
     data_spec = cfg.get("data") or {}
     frame = load_data(data_spec, base_dir=base_dir)
     id_column = cfg.get("id_column")
+    hash_input = bool(cfg.get("hash_input", True))
 
     if cfg.get("mode") == "predictions-only":
         columns = cfg.get("columns") or {}
@@ -58,91 +147,101 @@ def _combined_compare(config_path: Path, attribution_mode: str, permutations: in
             raise typer.BadParameter(f"predictions-only columns missing: {', '.join(missing)}")
         result = compare_predictions(
             frame,
-            baseline_score=columns["baseline_score"],
-            candidate_score=columns["candidate_score"],
-            baseline_decision=columns["baseline_decision"],
-            candidate_decision=columns["candidate_decision"],
+            baseline_score=columns["baseline_score"], candidate_score=columns["candidate_score"],
+            baseline_decision=columns["baseline_decision"], candidate_decision=columns["candidate_decision"],
             baseline_threshold=columns.get("baseline_threshold", cfg.get("baseline_threshold", 0.5)),
             candidate_threshold=columns.get("candidate_threshold", cfg.get("candidate_threshold", 0.5)),
             id_column=id_column,
+            allow_duplicate_ids=bool(cfg.get("allow_duplicate_ids", False)),
+            allow_null_ids=bool(cfg.get("allow_null_ids", False)),
+            hash_input=hash_input,
         )
     else:
-        baseline = build_pipeline(cfg.get("baseline") or {}, "baseline")
-        candidate = build_pipeline(cfg.get("candidate") or {}, "candidate")
-        result = compare_pipelines(baseline, candidate, frame, id_column=id_column)
-        if result.changed_components:
-            replay = HybridReplayCache(baseline, candidate, frame)
-            if attribution_mode == "exact":
-                result.attribution = exact_attribution(baseline, candidate, frame, result=result, cache=replay)
-            elif attribution_mode == "approximate":
-                result.attribution = approximate_attribution(baseline, candidate, frame, result=result, permutations=permutations, cache=replay)
-            elif attribution_mode != "none":
-                raise typer.BadParameter("attribution must be exact, approximate, or none")
-            result.interactions = pairwise_interactions(baseline, candidate, frame, result=result, cache=replay)
-            result.metadata["hybrid_pipeline_evaluations"] = replay.evaluations
-
-    if cfg.get("auto_cohorts", True):
-        cohort_columns = cfg.get("cohorts")
-        if cohort_columns is None:
-            excluded = {id_column} if id_column else set()
-            if cfg.get("mode") == "predictions-only":
-                excluded.update((cfg.get("columns") or {}).values())
-            cohort_columns = [c for c in frame.columns if c not in excluded]
-        result.cohorts = analyze_cohorts(
-            frame, result, columns=cohort_columns, min_size=int(cfg.get("min_cohort_size", 30))
+        baseline_spec = dict(cfg.get("baseline") or {})
+        candidate_spec = dict(cfg.get("candidate") or {})
+        if cfg.get("strict_reproducibility"):
+            baseline_spec.setdefault("strict_reproducibility", True)
+            candidate_spec.setdefault("strict_reproducibility", True)
+        baseline = build_pipeline(baseline_spec, "baseline", base_dir=base_dir)
+        candidate = build_pipeline(candidate_spec, "candidate", base_dir=base_dir)
+        result = compare_pipelines(
+            baseline, candidate, frame, id_column=id_column,
+            allow_duplicate_ids=bool(cfg.get("allow_duplicate_ids", False)),
+            allow_null_ids=bool(cfg.get("allow_null_ids", False)),
+            hash_input=hash_input,
         )
-    return result
+        _attach_attribution(result, baseline, candidate, frame, attribution_mode, permutations, seed, confidence_level)
+
+    result.metadata["configuration_sha256"] = configuration_sha256(config_path)
+    result.metadata["input_content_hashing_enabled"] = hash_input
+    result.metadata["input_data_fingerprint"] = sha256_file(resolve_data_path(data_spec, base_dir=base_dir)) if hash_input else None
+    _post_analysis(cfg, frame, result, id_column=id_column)
+    return result, cfg
 
 
 @app.command("compare")
 def compare_command(
     configs: Annotated[list[Path], typer.Argument(help="One combined YAML config, or baseline.yaml candidate.yaml.")],
-    format: Annotated[str, typer.Option(help="terminal, json, or markdown")] = "terminal",
+    format: Annotated[str, typer.Option(help="terminal, json, markdown, or html")] = "terminal",
     attribution: Annotated[str, typer.Option(help="exact, approximate, or none")] = "exact",
     permutations: Annotated[int, typer.Option(help="Permutation count for approximate attribution.")] = 256,
+    seed: Annotated[int, typer.Option(help="Random seed for approximate attribution.")] = 0,
+    confidence_level: Annotated[float, typer.Option(help="Monte Carlo confidence level.")] = 0.95,
+    contract: Annotated[Path | None, typer.Option(help="Optional Decision Contract YAML.")] = None,
     save: Annotated[bool, typer.Option(help="Persist machine-readable evidence.")] = True,
 ):
     """Compare baseline and candidate decision systems on the same local records."""
     try:
         if len(configs) == 1:
-            result = _combined_compare(configs[0], attribution, permutations)
+            result, _ = _combined_compare(configs[0], attribution, permutations, seed, confidence_level)
         elif len(configs) == 2:
-            base_cfg = load_yaml(configs[0])
-            cand_cfg = load_yaml(configs[1])
+            base_cfg = load_yaml(configs[0]); cand_cfg = load_yaml(configs[1])
             data_cfg = base_cfg.get("data") or cand_cfg.get("data")
             if not data_cfg:
                 raise typer.BadParameter("One of the two configs must provide data.path")
             data_base_dir = configs[0].parent if base_cfg.get("data") else configs[1].parent
             frame = load_data(data_cfg, base_dir=data_base_dir)
             id_column = base_cfg.get("id_column") or cand_cfg.get("id_column")
-            baseline = build_pipeline(base_cfg.get("pipeline") or base_cfg, "baseline")
-            candidate = build_pipeline(cand_cfg.get("pipeline") or cand_cfg, "candidate")
-            result = compare_pipelines(baseline, candidate, frame, id_column=id_column)
-            replay = HybridReplayCache(baseline, candidate, frame)
-            if attribution == "exact":
-                result.attribution = exact_attribution(baseline, candidate, frame, result=result, cache=replay)
-            elif attribution == "approximate":
-                result.attribution = approximate_attribution(baseline, candidate, frame, result=result, permutations=permutations, cache=replay)
-            elif attribution != "none":
-                raise typer.BadParameter("attribution must be exact, approximate, or none")
-            result.interactions = pairwise_interactions(baseline, candidate, frame, result=result, cache=replay)
-            result.metadata["hybrid_pipeline_evaluations"] = replay.evaluations
-            auto_cohorts = base_cfg.get("auto_cohorts", cand_cfg.get("auto_cohorts", True))
-            if auto_cohorts:
-                cohort_columns = base_cfg.get("cohorts") or cand_cfg.get("cohorts")
-                if cohort_columns is None:
-                    cohort_columns = [c for c in frame.columns if c != id_column]
-                min_size = int(base_cfg.get("min_cohort_size", cand_cfg.get("min_cohort_size", 30)))
-                result.cohorts = analyze_cohorts(frame, result, columns=cohort_columns, min_size=min_size)
+            merged_cfg = {**cand_cfg, **base_cfg}
+            hash_input = bool(merged_cfg.get("hash_input", True))
+            baseline_spec = dict(base_cfg.get("pipeline") or base_cfg)
+            candidate_spec = dict(cand_cfg.get("pipeline") or cand_cfg)
+            if merged_cfg.get("strict_reproducibility"):
+                baseline_spec.setdefault("strict_reproducibility", True)
+                candidate_spec.setdefault("strict_reproducibility", True)
+            baseline = build_pipeline(baseline_spec, "baseline", base_dir=configs[0].parent)
+            candidate = build_pipeline(candidate_spec, "candidate", base_dir=configs[1].parent)
+            result = compare_pipelines(
+                baseline, candidate, frame, id_column=id_column,
+                allow_duplicate_ids=bool(merged_cfg.get("allow_duplicate_ids", False)),
+                allow_null_ids=bool(merged_cfg.get("allow_null_ids", False)),
+                hash_input=hash_input,
+            )
+            _attach_attribution(result, baseline, candidate, frame, attribution, permutations, seed, confidence_level)
+            result.metadata["configuration_sha256"] = sha256_bytes(
+                configs[0].read_bytes() + b"\0" + configs[1].read_bytes()
+            )
+            result.metadata["input_content_hashing_enabled"] = hash_input
+            result.metadata["input_data_fingerprint"] = (
+                sha256_file(resolve_data_path(data_cfg, base_dir=data_base_dir)) if hash_input else None
+            )
+            _post_analysis(merged_cfg, frame, result, id_column=id_column)
         else:
             raise typer.BadParameter("Pass either one combined config or two pipeline configs")
-    except (DeciShiftError, ValueError, KeyError, FileNotFoundError) as exc:
+    except (DeciShiftError, ValueError, KeyError, FileNotFoundError, ImportError) as exc:
         raise typer.BadParameter(str(exc)) from exc
 
     typer.echo(_render(result, format))
-    if save:
+    run_id = None
+    if save or contract is not None:
         run_id = RunStore().save(result)
         typer.echo(f"\nRun ID: {run_id}")
+    if contract is not None:
+        verification = RunStore().verify(run_id)
+        evaluation = evaluate_contract(result, load_contract(contract), integrity_passed=verification.passed)
+        typer.echo("\n" + render_contract_terminal(evaluation))
+        if evaluation.exit_code:
+            raise typer.Exit(code=evaluation.exit_code)
 
 
 @app.command()
@@ -152,22 +251,90 @@ def explain(
 ):
     """Explain one historical decision comparison from saved evidence."""
     try:
-        payload = RunStore().explain(run, id)
+        data = RunStore().explain(run, id)
     except (FileNotFoundError, KeyError) as exc:
         raise typer.BadParameter(str(exc)) from exc
-    typer.echo(json.dumps(payload, indent=2, default=str))
+    typer.echo(json.dumps(data, indent=2, default=str))
 
 
 @app.command()
 def report(
     run: Annotated[str, typer.Argument(help="Saved DeciShift run ID.")],
-    format: Annotated[str, typer.Option(help="terminal, json, or markdown")] = "markdown",
+    format: Annotated[str, typer.Option(help="terminal, json, markdown, or html")] = "markdown",
 ):
     """Render a saved run without recomputing the comparison."""
+    store = RunStore()
     try:
-        typer.echo(RunStore().report(run, format))
+        if format == "html":
+            path = store.report_path(run, "html")
+            typer.echo(str(path))
+        else:
+            typer.echo(store.report(run, format))
     except (FileNotFoundError, ValueError) as exc:
         raise typer.BadParameter(str(exc)) from exc
+
+
+@app.command()
+def verify(run: Annotated[str, typer.Argument(help="Saved DeciShift run ID.")]):
+    """Verify tamper-evident hashes for a saved evidence bundle."""
+    try:
+        result = RunStore().verify(run)
+    except FileNotFoundError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    typer.echo("DeciShift evidence verification\n")
+    typer.echo(f"Run: {run}\n")
+    typer.echo(f"{result.manifest_status} manifest")
+    for item in result.items:
+        typer.echo(f"{item.status:<7}{item.artifact}")
+        if item.status != "PASS":
+            typer.echo(f"  expected: {item.expected}")
+            typer.echo(f"  actual:   {item.actual}")
+    typer.echo(f"\nIntegrity root:\n{result.integrity_root}\n")
+    typer.echo(result.message)
+    if not result.passed:
+        raise typer.Exit(code=EXIT_INTEGRITY_FAILURE)
+
+
+@app.command()
+def gate(
+    run: Annotated[str, typer.Argument(help="Saved DeciShift run ID.")],
+    contract: Annotated[Path, typer.Option("--contract", help="Decision Contract YAML.")],
+):
+    """Evaluate deterministic user-declared Decision Contract thresholds."""
+    store = RunStore()
+    try:
+        verification = store.verify(run)
+        result = store.load(run)
+        evaluation = evaluate_contract(result, load_contract(contract), integrity_passed=verification.passed)
+    except (FileNotFoundError, ValueError, KeyError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    typer.echo(render_contract_terminal(evaluation))
+    if evaluation.exit_code:
+        raise typer.Exit(code=evaluation.exit_code)
+
+
+@app.command("compare-runs")
+def compare_runs(
+    run_a: Annotated[str, typer.Argument()],
+    run_b: Annotated[str, typer.Argument()],
+    format: Annotated[str, typer.Option(help="terminal or json")] = "terminal",
+):
+    """Compare two saved DeciShift analyses without replaying underlying models."""
+    try:
+        data = compare_saved_runs(run_a, run_b)
+    except (FileNotFoundError, ValueError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    if format == "json":
+        typer.echo(json.dumps(data, indent=2, default=str))
+    elif format == "terminal":
+        shift = data["decision_shift_rate"]
+        typer.echo("DeciShift saved-run comparison\n" + "=" * 56)
+        typer.echo(f"{run_a}: {shift['run_a']:.2%}")
+        typer.echo(f"{run_b}: {shift['run_b']:.2%}")
+        typer.echo(f"delta: {shift['delta']:+.2%}")
+        typer.echo("\n" + data["note"])
+    else:
+        raise typer.BadParameter("format must be terminal or json")
 
 
 if __name__ == "__main__":

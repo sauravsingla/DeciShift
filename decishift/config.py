@@ -8,6 +8,7 @@ import pandas as pd
 import yaml
 
 from decishift.core.exceptions import ConfigurationError
+from decishift.core.identity import ComponentIdentity, sha256_file
 from decishift.core.pipeline import DecisionPipeline
 
 
@@ -19,19 +20,28 @@ def load_yaml(path: str | Path) -> dict[str, Any]:
     return data
 
 
-def load_data(spec: dict[str, Any], *, base_dir: Path) -> pd.DataFrame:
+def configuration_sha256(path: str | Path) -> str:
+    return sha256_file(path)
+
+
+def resolve_data_path(spec: dict[str, Any], *, base_dir: Path) -> Path:
     raw_path = spec.get("path")
     if not raw_path:
         raise ConfigurationError("data.path is required")
-    path = (base_dir / raw_path).resolve() if not Path(raw_path).is_absolute() else Path(raw_path)
-    if not path.exists():
+    path = (base_dir / raw_path).resolve() if not Path(raw_path).is_absolute() else Path(raw_path).resolve()
+    if not path.exists() or not path.is_file():
         raise ConfigurationError(f"Local data file does not exist: {path}")
+    return path
+
+
+def load_data(spec: dict[str, Any], *, base_dir: Path) -> pd.DataFrame:
+    path = resolve_data_path(spec, base_dir=base_dir)
     suffix = path.suffix.lower()
     if suffix == ".csv":
         return pd.read_csv(path)
     if suffix in {".parquet", ".pq"}:
         return pd.read_parquet(path)
-    raise ConfigurationError("Only local CSV and Parquet data are supported in v0.1")
+    raise ConfigurationError("Only local CSV and Parquet data are supported")
 
 
 def _import_object(path: str) -> Any:
@@ -45,51 +55,86 @@ def _import_object(path: str) -> Any:
         raise ConfigurationError(f"Cannot import {path}") from exc
 
 
-def _component(spec: Any) -> tuple[Any, str | None]:
-    if spec is None or spec == "identity":
-        return None, "identity"
-    if not isinstance(spec, dict):
-        return spec, str(spec)
+def _identity_from_spec(name: str, spec: dict[str, Any], *, base_dir: Path | None = None) -> tuple[ComponentIdentity | None, str | None]:
     version = spec.get("version")
+    digest = spec.get("digest")
+    artifact = spec.get("artifact") or spec.get("artifact_path")
+    artifact_path: str | None = None
+    if artifact:
+        path = Path(str(artifact))
+        if base_dir is not None and not path.is_absolute():
+            path = (base_dir / path).resolve()
+        if not path.exists() or not path.is_file():
+            raise ConfigurationError(f"Artifact path for {name} does not exist: {path}")
+        artifact_path = str(path)
+        if digest is None:
+            digest = sha256_file(path)
+    if digest is not None and not str(digest).startswith("sha256:"):
+        digest = "sha256:" + str(digest)
+    if version is not None or digest is not None:
+        source = "artifact" if artifact_path else "explicit"
+        return ComponentIdentity(name, None if version is None else str(version), None if digest is None else str(digest), source, True), artifact_path
+    return None, artifact_path
+
+
+def _component(name: str, spec: Any, *, base_dir: Path | None = None) -> tuple[Any, str | None, ComponentIdentity | None, str | None]:
+    if spec is None or spec == "identity":
+        return None, "identity", ComponentIdentity(name, "identity", None, "explicit", True), None
+    if not isinstance(spec, dict):
+        return spec, str(spec), ComponentIdentity(name, str(spec), None, "explicit", True), None
+    version = spec.get("version")
+    identity, artifact_path = _identity_from_spec(name, spec, base_dir=base_dir)
     if "object" in spec:
-        return _import_object(spec["object"]), version
+        return _import_object(spec["object"]), version, identity, artifact_path
     if "factory" in spec:
         factory = _import_object(spec["factory"])
-        return factory(**(spec.get("kwargs") or {})), version
-    raise ConfigurationError("Component mappings require 'object' or 'factory'")
+        try:
+            value = factory(**(spec.get("kwargs") or {}))
+        except Exception as exc:
+            raise ConfigurationError(f"Factory {spec['factory']} failed: {type(exc).__name__}: {exc}") from exc
+        return value, version, identity, artifact_path
+    if "value" in spec and name == "threshold":
+        value = float(spec["value"])
+        return value, version or str(value), identity, artifact_path
+    raise ConfigurationError("Component mappings require 'object' or 'factory' (threshold also supports 'value')")
 
 
-def build_pipeline(spec: dict[str, Any], name: str) -> DecisionPipeline:
+def build_pipeline(spec: dict[str, Any], name: str, *, base_dir: Path | None = None) -> DecisionPipeline:
     versions: dict[str, str] = {}
-    features, version = _component(spec.get("features"))
-    if version is not None:
-        versions["features"] = version
-    model, version = _component(spec.get("model"))
-    if version is not None:
-        versions["model"] = version
-    calibrator, version = _component(spec.get("calibrator"))
-    if version is not None:
-        versions["calibrator"] = version
-    rules, version = _component(spec.get("rules"))
-    if version is not None:
-        versions["rules"] = version
+    identities: dict[str, ComponentIdentity] = {}
+    artifact_paths: dict[str, str] = {}
+    values: dict[str, Any] = {}
+
+    for component_name in ("features", "model", "calibrator", "rules"):
+        value, version, identity, artifact_path = _component(component_name, spec.get(component_name), base_dir=base_dir)
+        values[component_name] = value
+        if version is not None:
+            versions[component_name] = str(version)
+        if identity is not None:
+            identities[component_name] = identity
+        if artifact_path:
+            artifact_paths[component_name] = artifact_path
 
     threshold_spec = spec.get("threshold", 0.5)
-    if isinstance(threshold_spec, dict):
-        if "value" not in threshold_spec:
-            raise ConfigurationError("threshold mapping requires value")
-        threshold = float(threshold_spec["value"])
-        versions["threshold"] = str(threshold_spec.get("version", threshold))
-    else:
-        threshold = float(threshold_spec)
-        versions["threshold"] = str(threshold)
+    threshold, version, identity, artifact_path = _component("threshold", threshold_spec, base_dir=base_dir)
+    values["threshold"] = threshold
+    if version is not None:
+        versions["threshold"] = str(version)
+    if identity is not None:
+        identities["threshold"] = identity
+    if artifact_path:
+        artifact_paths["threshold"] = artifact_path
 
+    strict = bool(spec.get("strict_reproducibility", False))
     return DecisionPipeline(
-        features=features,
-        model=model,
-        calibrator=calibrator,
-        threshold=threshold,
-        rules=rules,
+        features=values["features"],
+        model=values["model"],
+        calibrator=values["calibrator"],
+        threshold=values["threshold"],
+        rules=values["rules"],
         versions=versions,
+        identities=identities,
+        artifact_paths=artifact_paths,
         name=name,
+        strict_reproducibility=strict,
     )

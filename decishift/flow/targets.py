@@ -4,6 +4,7 @@ from typing import Protocol, runtime_checkable
 
 import numpy as np
 
+from decishift.flow.actions import action_equal_mask
 from decishift.flow.trace import FlowTrace
 
 
@@ -26,14 +27,14 @@ class CandidateActionSupport:
     name = "candidate_action_support"
 
     def evaluate(self, trace: FlowTrace, baseline_trace: FlowTrace, candidate_trace: FlowTrace) -> np.ndarray:
-        return (trace.actions == candidate_trace.actions).astype(float)
+        return action_equal_mask(trace.actions, candidate_trace.actions).astype(float)
 
 
 class ChangeFromBaseline:
     name = "change_from_baseline"
 
     def evaluate(self, trace: FlowTrace, baseline_trace: FlowTrace, candidate_trace: FlowTrace) -> np.ndarray:
-        return (trace.actions != baseline_trace.actions).astype(float)
+        return (~action_equal_mask(trace.actions, baseline_trace.actions)).astype(float)
 
 
 BUILTIN_TARGETS = {

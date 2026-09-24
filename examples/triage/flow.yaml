@@ -1,0 +1,67 @@
+mode: flow
+data:
+  path: history.csv
+id_column: record_id
+min_cohort_size: 3
+cohorts: [region]
+attribution_target: candidate_action_support
+
+baseline:
+  final_node: final_action
+  nodes:
+    sensor_features:
+      factory: decishift.examples.triage:SensorFeaturesV1
+      version: sensor_features_v1
+      depends_on: []
+    failure_risk_model:
+      factory: decishift.examples.triage:FailureRiskModelV1
+      version: failure_risk_model_v1
+      depends_on: [sensor_features]
+      group: predictive_models
+    downtime_model:
+      factory: decishift.examples.triage:DowntimeModelV1
+      version: downtime_model_v1
+      depends_on: []
+      group: predictive_models
+    triage_policy:
+      factory: decishift.examples.triage:TriagePolicyV1
+      version: triage_policy_v1
+      depends_on: [failure_risk_model, downtime_model]
+    safety_rules:
+      factory: decishift.examples.triage:SafetyRulesV1
+      version: safety_rules_v1
+      depends_on: [triage_policy]
+    final_action:
+      factory: decishift.examples.triage:FinalAction
+      version: final_action_v1
+      depends_on: [safety_rules]
+
+candidate:
+  final_node: final_action
+  nodes:
+    sensor_features:
+      factory: decishift.examples.triage:SensorFeaturesV2
+      version: sensor_features_v2
+      depends_on: []
+    failure_risk_model:
+      factory: decishift.examples.triage:FailureRiskModelV2
+      version: failure_risk_model_v2
+      depends_on: [sensor_features]
+      group: predictive_models
+    downtime_model:
+      factory: decishift.examples.triage:DowntimeModelV1
+      version: downtime_model_v1
+      depends_on: []
+      group: predictive_models
+    triage_policy:
+      factory: decishift.examples.triage:TriagePolicyV2
+      version: triage_policy_v2
+      depends_on: [failure_risk_model, downtime_model]
+    safety_rules:
+      factory: decishift.examples.triage:SafetyRulesV2
+      version: safety_rules_v2
+      depends_on: [triage_policy]
+    final_action:
+      factory: decishift.examples.triage:FinalAction
+      version: final_action_v1
+      depends_on: [safety_rules]

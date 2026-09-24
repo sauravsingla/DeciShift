@@ -2,6 +2,50 @@
 
 All notable changes to DeciShift are documented here.
 
+## 0.3.0 - Unreleased
+
+Theme: **Composable Decision Flows**.
+
+### Added
+
+- `DecisionNode`, `DecisionFlow` and `FlowTrace` for deterministic row-aligned DAG decision systems while retaining `DecisionPipeline`.
+- Branching, merging, multiple model/policy/rule stages and categorical/multi-action final decisions.
+- Deterministic standard-library DAG validation and canonical SHA-256 topology fingerprints.
+- Graph-aware node-output caching with descendant invalidation and unaffected-branch reuse metrics.
+- Structural downstream-impact analysis explicitly separated from observed action changes and causal claims.
+- Independent observed-action comparison across topology changes, with node/group hybrid attribution explicitly disabled when topology is incompatible.
+- Multi-action transition counts/rates, action distributions, full transition matrices and most frequent changed transitions.
+- Numeric `AttributionTarget` protocol with built-in `candidate_action_support` and `change_from_baseline` games.
+- Exact and adaptive approximate flow attribution across changed nodes or explicitly declared groups.
+- Flow pairwise interaction evidence including interaction-only categorical transitions.
+- Multi-action Decision Contract rules for transitions and candidate action rates/counts.
+- Compact multi-action cohort summaries and explicitly configured multiclass outcome analysis.
+- Optional `DecisionOutput` with explicit score/margin; categorical fragility is never invented.
+- `mode: flow` YAML configuration and `decishift graph` text/Mermaid inspection.
+- DecisionFlow evidence schema `2.0` while preserving v0.1/v0.2 evidence loading/verification.
+- Terminal/JSON/Markdown/self-contained HTML flow reports.
+- Synthetic equipment-maintenance triage example with `monitor`, `inspect`, and `service` actions.
+- CPU benchmark harness for linear 5-node and branched 8-node flows at 10,000 and 100,000 rows.
+
+### Scientific/compatibility constraints
+
+- Categorical actions are never numerically subtracted or silently ordinal-encoded.
+- Structural reachability is not causal impact.
+- Software counterfactual attribution does not establish real-world causality.
+- Topology-changing hybrid attribution is unsupported in v0.3 rather than fabricated.
+- Sampling intervals quantify permutation-sampling uncertainty only.
+- Existing v0.1/v0.2 public APIs, binary reports, contracts, evidence and CLI behavior remain supported.
+
+## 0.2.1 - Unreleased
+
+### Changed
+
+- Separate attribution additivity (`efficiency_valid`) from Monte Carlo sampling precision and convergence semantics.
+- Preserve the legacy `converged` field while requiring genuine sampling convergence for approximate attribution rather than inferring convergence from Shapley efficiency alone.
+- Add optional adaptive permutation sampling with `min_permutations`, `max_permutations`, `batch_size`, `target_ci_width`, `confidence_level`, and deterministic `seed` handling.
+- Report `permutations_used`, `stopped_early`, `sampling_precision_sufficient`, `sampling_converged`, maximum/median CI width, and batch-stability diagnostics without retaining permutation samples in memory.
+- Keep existing fixed-permutation approximate attribution behavior and public APIs working.
+
 ## 0.2.0 - 2026-09-24
 
 Theme: **Trustworthy Decision-Change Evidence**.

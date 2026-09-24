@@ -1,6 +1,10 @@
 # Decision Contracts
 
-A Decision Contract declares limits chosen by the user.
+A Decision Contract declares limits chosen by the user. DeciShift never invents acceptable thresholds.
+
+## Existing binary contracts
+
+All v0.2 fields remain supported:
 
 ```yaml
 contract:
@@ -15,18 +19,41 @@ contract:
   cohorts:
     min_size: 100
     max_flip_rate: 0.12
-    overrides:
-      region=North:
-        max_flip_rate: 0.08
 ```
 
-Evaluate a saved run:
+## Multi-action flow contracts
+
+DecisionFlow adds transition/action rules without assigning numeric order to categorical actions:
+
+```yaml
+contract:
+  max_decision_shift_rate: 0.05
+  transitions:
+    "monitor->inspect":
+      max_rate: 0.04
+      max_count: 500
+    "inspect->service":
+      max_rate: 0.01
+  candidate_actions:
+    service:
+      max_rate: 0.10
+  attribution:
+    require_reproducible_identity: true
+    max_efficiency_mae: 0.001
+  cohorts:
+    min_size: 100
+    max_action_shift_rate: 0.12
+```
+
+Transition/action rules support `max_rate` and/or `max_count`. Flow cohorts use `max_action_shift_rate`; the historical `max_flip_rate` remains available for binary pipelines and is accepted as a backwards-friendly shift limit when a reused contract is applied to a flow.
+
+Evaluate saved evidence:
 
 ```bash
-decishift gate RUN_ID --contract examples/decision-contract.yaml
+decishift gate RUN_ID --contract examples/triage/decision-contract.yaml
 ```
 
-Exit codes:
+Exit codes are unchanged:
 
 | Code | Meaning |
 |---:|---|
@@ -36,4 +63,4 @@ Exit codes:
 | 11 | insufficient evidence |
 | 12 | evidence integrity failure |
 
-A passing contract is not proof that a system is safe, fair, compliant, correct, or suitable for deployment.
+A Decision Contract PASS means only that the user-declared checks passed against the saved DeciShift evidence. It is not proof that a system is safe, fair, compliant, correct, causal, or suitable for deployment.

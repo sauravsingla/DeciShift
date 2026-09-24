@@ -1,0 +1,18 @@
+contract:
+  max_decision_shift_rate: 0.80
+  transitions:
+    "monitor->inspect":
+      max_rate: 0.50
+    "inspect->service":
+      max_rate: 0.50
+    "service->inspect":
+      max_rate: 0.50
+  candidate_actions:
+    service:
+      max_rate: 0.80
+  attribution:
+    require_reproducible_identity: true
+    max_efficiency_mae: 0.000001
+  cohorts:
+    min_size: 3
+    max_action_shift_rate: 1.0

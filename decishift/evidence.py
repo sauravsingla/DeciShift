@@ -11,8 +11,11 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+# Existing DecisionPipeline evidence remains schema 1.0. DecisionFlow adds a
+# material graph/action evidence model and therefore uses explicit schema 2.0.
 EVIDENCE_SCHEMA_VERSION = "1.0"
-SUPPORTED_EVIDENCE_SCHEMA_VERSIONS = {"1.0", "0.1"}
+FLOW_EVIDENCE_SCHEMA_VERSION = "2.0"
+SUPPORTED_EVIDENCE_SCHEMA_VERSIONS = {"2.0", "1.0", "0.1"}
 
 
 def canonical_json_bytes(value: Any) -> bytes:
@@ -61,10 +64,6 @@ def fingerprint_dataframe(frame: pd.DataFrame, *, include_content: bool = True) 
     prefix = canonical_json_bytes({"schema": schema, "index_dtype": str(frame.index.dtype), "rows": len(frame)})
     if not include_content:
         return sha256_bytes(prefix + b"|content-hashing-disabled")
-    # pandas' stable row hashing avoids materializing a large textual CSV while
-    # incorporating values, schema, index and row order. Object columns can
-    # contain otherwise-unhashable values, so fall back to a deterministic
-    # canonical representation rather than silently skipping content.
     try:
         row_hashes = pd.util.hash_pandas_object(frame, index=True, categorize=True).to_numpy(dtype="uint64")
         content = row_hashes.tobytes(order="C")
@@ -114,6 +113,7 @@ def build_manifest(
     scientific_limitations: list[str],
     timestamp_utc: str | None = None,
 ) -> dict[str, Any]:
+    """Build the unchanged v0.2 DecisionPipeline evidence schema 1.0 manifest."""
     manifest: dict[str, Any] = {
         "evidence_schema_version": EVIDENCE_SCHEMA_VERSION,
         "decishift_version": decishift_version,
@@ -131,6 +131,77 @@ def build_manifest(
         "configuration_sha256": configuration_sha256,
         "input_data_fingerprint": input_data_fingerprint,
         "input_content_hashing_enabled": bool(input_hashing_enabled),
+        "evidence_artifact_sha256": dict(sorted(evidence_artifact_sha256.items())),
+        "reproducibility_status": reproducibility_status,
+        "scientific_limitations": list(scientific_limitations),
+    }
+    manifest["integrity_root"] = make_integrity_root(manifest)
+    return manifest
+
+
+def build_flow_manifest(
+    *,
+    decishift_version: str,
+    number_of_records: int,
+    configuration_sha256: str | None,
+    input_data_fingerprint: str | None,
+    input_hashing_enabled: bool,
+    evidence_artifact_sha256: dict[str, str],
+    reproducibility_status: str,
+    baseline_topology: dict[str, Any],
+    candidate_topology: dict[str, Any],
+    baseline_topology_digest: str,
+    candidate_topology_digest: str,
+    topology_compatible: bool,
+    topology_diff: dict[str, Any],
+    baseline_node_identities: dict[str, Any],
+    candidate_node_identities: dict[str, Any],
+    changed_nodes: list[str],
+    attribution_groups: dict[str, Any] | None,
+    final_node: str,
+    transition_matrix: dict[str, Any],
+    structural_impact: dict[str, Any],
+    attribution_status: str,
+    attribution_target: str | None,
+    attribution_method: str | None,
+    attribution_parameters: dict[str, Any] | None,
+    sampling_diagnostics: dict[str, Any] | None,
+    random_seed: int | None,
+    scientific_limitations: list[str],
+    timestamp_utc: str | None = None,
+) -> dict[str, Any]:
+    """Build DecisionFlow evidence schema 2.0 without altering schema 1.0."""
+    manifest: dict[str, Any] = {
+        "evidence_schema_version": FLOW_EVIDENCE_SCHEMA_VERSION,
+        "evidence_mode": "flow",
+        "decishift_version": decishift_version,
+        "timestamp_utc": timestamp_utc or datetime.now(timezone.utc).isoformat(),
+        "python_version": platform.python_version(),
+        "python_implementation": platform.python_implementation(),
+        "platform": platform.platform(),
+        "number_of_records": int(number_of_records),
+        "configuration_sha256": configuration_sha256,
+        "input_data_fingerprint": input_data_fingerprint,
+        "input_content_hashing_enabled": bool(input_hashing_enabled),
+        "baseline_topology": baseline_topology,
+        "candidate_topology": candidate_topology,
+        "baseline_topology_digest": baseline_topology_digest,
+        "candidate_topology_digest": candidate_topology_digest,
+        "topology_compatible": bool(topology_compatible),
+        "topology_diff": topology_diff,
+        "baseline_node_identities": baseline_node_identities,
+        "candidate_node_identities": candidate_node_identities,
+        "changed_nodes": list(changed_nodes),
+        "attribution_groups": attribution_groups or {},
+        "final_node": final_node,
+        "transition_matrix": transition_matrix,
+        "structural_impact": structural_impact,
+        "attribution_status": attribution_status,
+        "attribution_target": attribution_target,
+        "attribution_method": attribution_method,
+        "attribution_parameters": attribution_parameters or {},
+        "sampling_diagnostics": sampling_diagnostics or {},
+        "random_seed": random_seed,
         "evidence_artifact_sha256": dict(sorted(evidence_artifact_sha256.items())),
         "reproducibility_status": reproducibility_status,
         "scientific_limitations": list(scientific_limitations),
@@ -173,17 +244,20 @@ class VerificationResult:
 
 
 def verify_evidence_path(path: str | Path) -> VerificationResult:
+    """Verify any supported evidence manifest using its declared SHA-256 map."""
     run_path = Path(path)
     manifest_path = run_path / "manifest.json"
     run_id = run_path.name
     if not manifest_path.exists():
-        return VerificationResult(
-            run_id, False, None, None, [], "FAIL", "manifest.json is missing"
-        )
+        return VerificationResult(run_id, False, None, None, [], "FAIL", "manifest.json is missing")
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except Exception as exc:
         return VerificationResult(run_id, False, None, None, [], "FAIL", f"manifest.json is unreadable: {exc}")
+
+    schema = str(manifest.get("evidence_schema_version", "0.1"))
+    if schema not in SUPPORTED_EVIDENCE_SCHEMA_VERSIONS:
+        return VerificationResult(run_id, False, None, manifest.get("integrity_root"), [], "FAIL", f"unsupported evidence schema version: {schema}")
 
     expected_root = manifest.get("integrity_root")
     root_input = dict(manifest)
@@ -198,7 +272,6 @@ def verify_evidence_path(path: str | Path) -> VerificationResult:
     all_artifacts_ok = True
     for artifact, expected in sorted((manifest.get("evidence_artifact_sha256") or {}).items()):
         artifact_path = run_path / artifact
-        # Prevent a crafted manifest from traversing outside the evidence bundle.
         try:
             resolved = artifact_path.resolve()
             root = run_path.resolve()

@@ -19,3 +19,7 @@ Reports expose one of:
 Strict mode (`strict_reproducibility: true`) rejects unstable component identity. Within-process comparisons can still run without strict mode, but the limitation remains visible.
 
 DeciShift deliberately does not pickle arbitrary user objects just to derive a fingerprint.
+
+## Unstable components within one process
+
+When provenance is unavailable, DeciShift can still distinguish different runtime component objects for execution and cache correctness. That runtime identity is deliberately ephemeral: it is never serialized, hashed into evidence, or presented as reproducible provenance. Reports continue to mark the component as unstable.

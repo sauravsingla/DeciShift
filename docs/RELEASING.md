@@ -1,6 +1,6 @@
 # Releasing DeciShift
 
-This checklist keeps GitHub, PyPI package metadata, and Zenodo archival aligned around one GitHub Release.
+This checklist keeps GitHub, PyPI package metadata, runtime version metadata, and Zenodo archival aligned around one GitHub Release.
 
 ## One-time configuration
 
@@ -16,7 +16,7 @@ The workflow is stored at `.github/workflows/release.yml` and publishes through 
 
 For every release `X.Y.Z`:
 
-1. Update `pyproject.toml` to version `X.Y.Z`.
+1. Update both `pyproject.toml` and `decishift/version.py` to exactly `X.Y.Z`. These two version values must remain identical. Development builds may use a PEP 440 development version such as `X.Y.Z.dev0`, but the release commit must use the final `X.Y.Z` value in both places.
 2. Update `CITATION.cff` to version `X.Y.Z` and the release date.
 3. Remove any previous version-specific `doi:` from `CITATION.cff` before creating the new tag. The new version DOI does not exist until Zenodo archives the release.
 4. Add the release section to `CHANGELOG.md` and replace `Unreleased` with the release date when the contents are final.
@@ -31,6 +31,8 @@ python -m build
 python -m twine check dist/*
 decishift demo --rows 1000 --no-save
 ```
+
+The test suite includes a version-consistency check so runtime `decishift.__version__` cannot silently drift from `pyproject.toml`.
 
 7. Confirm GitHub Actions passes on `main`.
 8. In Zenodo, confirm the DeciShift GitHub integration is still enabled before publishing the GitHub Release.

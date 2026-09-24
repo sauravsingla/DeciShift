@@ -198,9 +198,11 @@ def render_flow_terminal(result: FlowComparisonResult) -> str:
         lines += ["", "Explicit multiclass outcome analysis", "-" * 72]
         lines.append(f"accuracy: {o['baseline_accuracy']:.2%} -> {o['candidate_accuracy']:.2%} ({o['accuracy_delta']:+.2%})")
 
-    lines += ["", "Reproducibility / topology / evidence integrity", "-" * 72]
+    lines += ["", "Reproducibility", "-" * 72]
     lines.append(f"reproducibility_status={payload['reproducibility_status']}")
+    lines += ["", "Topology compatibility", "-" * 72]
     lines.append(f"topology_compatible={payload['topology_compatible']}")
+    lines += ["", "Evidence integrity", "-" * 72]
     lines.append(payload["evidence_integrity"])
 
     lines += ["", "Scientific interpretation", "-" * 72]

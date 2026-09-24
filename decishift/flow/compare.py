@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -28,7 +29,13 @@ def _validate_ids(records: pd.DataFrame, id_column: str | None, *, allow_duplica
 
 
 def _action_key(value: Any) -> str:
-    return str(value)
+    """Stable display/evidence key without collapsing `1` and `"1"`."""
+    if isinstance(value, np.generic):
+        value = value.item()
+    if isinstance(value, str):
+        return value
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    return f"{type(value).__name__}:{encoded}"
 
 
 def _transition_frame(
@@ -85,7 +92,6 @@ class FlowComparisonResult:
 
     @property
     def changed_components(self) -> list[str]:
-        # Compatibility surface for generic storage/report helpers.
         return self.changed_nodes
 
     @property

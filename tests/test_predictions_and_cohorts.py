@@ -43,7 +43,6 @@ def test_numeric_cohort_generation():
 
 
 def test_categorical_cohort_generation():
-    n = 100
     groups = ["a"] * 50 + ["b"] * 50
     x = [0.55] * 50 + [0.30] * 50
     data = pd.DataFrame({"x": x, "force": False, "segment": groups})

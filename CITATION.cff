@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use DeciShift in research or practice, please cite this software."
+title: "DeciShift: Explain why decisions changed between ML system versions"
+type: software
+authors:
+  - family-names: Singla
+    given-names: Saurav
+repository-code: "https://github.com/sauravsingla/DeciShift"
+url: "https://github.com/sauravsingla/DeciShift"
+license: Apache-2.0
+version: 0.1.0
+date-released: 2026-09-24
+keywords:
+  - machine learning
+  - decision systems
+  - model diffing
+  - counterfactual attribution
+  - MLOps

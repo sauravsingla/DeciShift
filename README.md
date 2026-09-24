@@ -1,5 +1,9 @@
 # DeciShift
 
+[![PyPI version](https://img.shields.io/pypi/v/decishift.svg)](https://pypi.org/project/decishift/)
+[![Python versions](https://img.shields.io/pypi/pyversions/decishift.svg)](https://pypi.org/project/decishift/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22932948.svg)](https://doi.org/10.5281/zenodo.22932948)
+
 **Explain why decisions changed between ML system versions.**
 
 > Your candidate model improved AUC. But historical decisions changed. Why?
@@ -10,11 +14,17 @@ DeciShift is a CPU-first, local-first Python framework for comparing two version
 
 ## Five-minute demo
 
-Install directly from GitHub:
+Install from PyPI:
+
+```bash
+python -m pip install decishift
+decishift demo
+```
+
+To install the latest development version directly from GitHub:
 
 ```bash
 python -m pip install git+https://github.com/sauravsingla/DeciShift.git
-decishift demo
 ```
 
 Or clone the repository for development:
@@ -25,8 +35,6 @@ cd DeciShift
 python -m pip install -e .
 decishift demo
 ```
-
-The distribution is already packaged as `decishift` version `0.1.0`; the shorter `pip install decishift` command becomes available once the distribution is published to PyPI.
 
 The demo uses a synthetic **equipment-maintenance intervention** problem. It makes no network calls, uses no LLM API, requires no GPU, and uploads no data.
 
@@ -332,6 +340,14 @@ Deliberately not included:
 ## Privacy
 
 DeciShift is local by default. The package contains no telemetry, data-upload path, remote model API, or network client in its core dependencies.
+
+## Citation
+
+For the archived **v0.1.0** release, use the version-specific DOI: **10.5281/zenodo.22932949**.
+
+For references intended to resolve across all DeciShift versions, use the Zenodo concept DOI: **10.5281/zenodo.22932948**.
+
+Machine-readable citation metadata is provided in [`CITATION.cff`](CITATION.cff).
 
 ## License
 

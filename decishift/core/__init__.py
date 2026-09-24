@@ -1,3 +1,4 @@
-from decishift.core.pipeline import DecisionPipeline, PipelineTrace
+from decishift.core.identity import ComponentIdentity
+from decishift.core.pipeline import COMPONENTS, DecisionPipeline, PipelineTrace
 
-__all__ = ["DecisionPipeline", "PipelineTrace"]
+__all__ = ["COMPONENTS", "ComponentIdentity", "DecisionPipeline", "PipelineTrace"]

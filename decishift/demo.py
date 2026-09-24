@@ -5,10 +5,11 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from decishift.attribution import exact_attribution, pairwise_interactions
+from decishift.attribution import calculate_attribution_diagnostics, exact_attribution, pairwise_interactions
 from decishift.cohorts import analyze_cohorts
 from decishift.core.pipeline import DecisionPipeline
 from decishift.diff.compare import compare_pipelines
+from decishift.fragility import analyze_fragility
 from decishift.replay.engine import HybridReplayCache
 
 
@@ -89,11 +90,21 @@ def run_demo(n: int = 10_000):
     replay = HybridReplayCache(baseline, candidate, frame)
     result.attribution = exact_attribution(baseline, candidate, frame, result=result, cache=replay)
     result.interactions = pairwise_interactions(baseline, candidate, frame, result=result, cache=replay)
-    result.metadata["hybrid_pipeline_evaluations"] = replay.evaluations
+    result.metadata.update({
+        "hybrid_pipeline_evaluations": replay.evaluations,
+        "attribution_method": "exact",
+        "attribution_parameters": {"max_components": 10},
+        "random_seed": None,
+    })
+    result.diagnostics = calculate_attribution_diagnostics(
+        result, result.attribution, method="exact", hybrid_evaluations=replay.evaluations, tolerance=1e-9
+    )
     result.cohorts = analyze_cohorts(
         frame,
         result,
         columns=["equipment_age_years", "vibration", "temperature_c", "utilization", "region", "equipment_type"],
+        id_column="record_id",
         min_size=max(30, n // 200),
     )
+    analyze_fragility(result)
     return frame, result

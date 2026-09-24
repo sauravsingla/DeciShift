@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -20,5 +20,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e '.[dev]'
-      - run: pytest
+      - run: ruff check .
+      - run: pytest --cov=decishift
+      - run: python -m build
+      - run: python -m twine check dist/*
       - run: decishift demo --rows 1000 --no-save

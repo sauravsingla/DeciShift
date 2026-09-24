@@ -1,0 +1,4 @@
+contract:
+  max_decision_shift_rate: 0.01
+  attribution:
+    require_reproducible_identity: true

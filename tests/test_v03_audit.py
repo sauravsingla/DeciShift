@@ -3,9 +3,11 @@ import json
 import pandas as pd
 import pytest
 
+from decishift.contracts import evaluate_contract
 from decishift.core.exceptions import ComponentExecutionError, InsufficientEvidenceError
 from decishift.flow import DecisionFlow, DecisionNode, compare_flows
-from decishift.flow.attribution import exact_flow_attribution
+from decishift.flow.analysis import analyze_multiclass_outcomes
+from decishift.flow.attribution import exact_flow_attribution, flow_pairwise_interactions
 from decishift.flow.executor import FlowExecutor
 from decishift.flow.reports import render_flow_html, render_flow_json, render_flow_markdown, render_flow_terminal
 from decishift.store import RunStore
@@ -29,6 +31,54 @@ def test_numeric_and_string_action_labels_do_not_collapse():
     assert summary["baseline_action_distribution"] == {"1": 1, "int:1": 1}
     assert summary["candidate_action_distribution"] == {"1": 1, "int:1": 1}
     assert set(summary["transition_counts"]) == {"1->int:1", "int:1->1"}
+
+
+def test_boolean_and_integer_actions_remain_distinct_across_flow_evidence():
+    records = pd.DataFrame({"baseline": [True], "candidate": [1], "actual": [True]}, dtype=object)
+    baseline = DecisionFlow([DecisionNode("action", ColumnAction("baseline", "b1"), version="b1")], "action")
+    candidate = DecisionFlow([DecisionNode("action", ColumnAction("candidate", "c1"), version="c1")], "action")
+
+    result = compare_flows(baseline, candidate, records)
+    assert bool(result.records.loc[0, "changed"]) is True
+    assert result.records.loc[0, "transition"] == "bool:true->int:1"
+
+    attribution, diagnostics = exact_flow_attribution(
+        baseline,
+        candidate,
+        records,
+        result=result,
+        target="candidate_action_support",
+    )
+    assert diagnostics.efficiency_valid is True
+    assert attribution["target_contribution"].sum() == pytest.approx(1.0)
+
+    interactions = flow_pairwise_interactions(baseline, candidate, records, result=result)
+    assert interactions.empty
+
+    int_contract = evaluate_contract(result, {"candidate_actions": {1: {"max_count": 0}}})
+    assert int_contract.result == "BLOCK"
+    bool_contract = evaluate_contract(result, {"candidate_actions": {True: {"max_count": 0}}})
+    assert bool_contract.result == "PASS"
+
+    outcome = analyze_multiclass_outcomes(
+        records,
+        result,
+        outcome_column="actual",
+        actions_are_predictions=True,
+    )
+    assert outcome["baseline_accuracy"] == pytest.approx(1.0)
+    assert outcome["candidate_accuracy"] == pytest.approx(0.0)
+    assert set(outcome["class_labels"]) == {"bool:true", "int:1"}
+
+
+def test_reserved_typed_prefix_string_is_not_confused_with_typed_scalar_display():
+    records = pd.DataFrame({"baseline": ["int:1"], "candidate": [1]}, dtype=object)
+    baseline = DecisionFlow([DecisionNode("action", ColumnAction("baseline", "b1"), version="b1")], "action")
+    candidate = DecisionFlow([DecisionNode("action", ColumnAction("candidate", "c1"), version="c1")], "action")
+    result = compare_flows(baseline, candidate, records)
+    assert result.records.loc[0, "transition"] == 'str:"int:1"->int:1'
+    assert result.summary()["baseline_action_distribution"] == {'str:"int:1"': 1}
+    assert result.summary()["candidate_action_distribution"] == {"int:1": 1}
 
 
 def test_changed_final_node_disables_hybrid_attribution_but_observed_comparison_works():

@@ -1,7 +1,9 @@
 # DeciShift
 
+[![CI](https://github.com/sauravsingla/DeciShift/actions/workflows/tests.yml/badge.svg)](https://github.com/sauravsingla/DeciShift/actions/workflows/tests.yml)
 [![PyPI version](https://img.shields.io/pypi/v/decishift.svg)](https://pypi.org/project/decishift/)
 [![Python versions](https://img.shields.io/pypi/pyversions/decishift.svg)](https://pypi.org/project/decishift/)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22932948.svg)](https://doi.org/10.5281/zenodo.22932948)
 
 **Explain why decisions changed between ML system versions.**
@@ -14,7 +16,7 @@ DeciShift is a CPU-first, local-first Python framework for comparing two version
 
 ## Trustworthy decision-change evidence
 
-v0.2 extends the original decision-diff engine with attribution uncertainty, efficiency diagnostics, stable component provenance, tamper-evident evidence bundles, Decision Contracts, optional outcome analysis, decision fragility, static HTML reports and CI-friendly exit codes.
+v0.2.0 extends the original decision-diff engine with attribution uncertainty, efficiency diagnostics, stable component provenance, tamper-evident evidence bundles, Decision Contracts, optional outcome analysis, decision fragility, static HTML reports and CI-friendly exit codes.
 
 An illustrative evidence shape looks like:
 
@@ -23,13 +25,13 @@ Candidate AUC improved.
 
 3,158 historical decisions changed.
 
-DeciShift found:
-features       35.2%
-model          27.6%
+Component attribution:
+features       38.4%
+model          31.7%
 threshold      21.8%
-rules          10.1%
-interactions    5.3%
+rules           8.1%
 
+Interaction-only flips: 26
 Approximation uncertainty: acceptable
 Evidence integrity: verified
 
@@ -37,7 +39,7 @@ Decision Contract:
 BLOCK — priority cohort flip rate exceeded configured limit.
 ```
 
-Those values are illustrative, not benchmark claims. Runtime results are computed from the supplied pipelines and records.
+Those values are illustrative, not benchmark claims. Component attribution and pairwise interaction diagnostics are distinct outputs; pairwise interactions are not an additional additive share of the component-attribution total. Runtime results are computed from the supplied pipelines and records.
 
 Model metrics answer:
 
@@ -49,14 +51,14 @@ DeciShift answers:
 
 ## Five-minute demo
 
-Install the published package:
+Install the current published release:
 
 ```bash
-python -m pip install decishift
+python -m pip install --upgrade decishift==0.2.0
 decishift demo
 ```
 
-Or install the latest development branch from source.
+Or install from this repository when developing against `main`.
 
 The demo uses a synthetic **equipment-maintenance intervention** problem. It makes no network calls, uses no LLM API, requires no GPU, uploads no data, and runs on ordinary CPU hardware.
 
@@ -78,7 +80,7 @@ A candidate release can change any subset of those components. A model-only comp
 
 ## Core API
 
-The v0.1 public imports remain supported:
+The v0.1 public imports remain supported in v0.2.0:
 
 ```python
 from decishift import DecisionPipeline, compare_pipelines, compare_predictions
@@ -100,7 +102,7 @@ Each row records baseline/candidate score, threshold, margin, final decision, fl
 
 ## Approximate attribution uncertainty
 
-Approximate permutation attribution now reports streaming Monte Carlo uncertainty without storing all samples:
+Approximate permutation attribution reports streaming Monte Carlo uncertainty without storing all samples:
 
 ```text
 component       contribution   95% CI
@@ -137,7 +139,7 @@ Strict reproducibility mode can reject unstable identity. Reports surface `repro
 
 ## Evidence bundles and verification
 
-Every saved v0.2 run produces a local evidence bundle such as:
+Every saved v0.2.0 run produces a local evidence bundle such as:
 
 ```text
 .decishift/runs/<run_id>/
@@ -150,9 +152,13 @@ Every saved v0.2 run produces a local evidence bundle such as:
     report.md
     report.txt
     report.html
+    fragility.csv   # when fragility evidence is available
+    outcome.json    # when outcome analysis is configured
 ```
 
-Verify it offline:
+The core CSV/report files are written for every saved run; optional analysis artifacts are included only when that analysis is available.
+
+Verify a saved bundle offline:
 
 ```bash
 decishift verify RUN_ID
@@ -262,6 +268,8 @@ python -m build
 python -m twine check dist/*
 decishift demo --rows 1000 --no-save
 ```
+
+CI runs these checks on Python 3.11, 3.12 and 3.13.
 
 ## Research positioning
 

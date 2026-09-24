@@ -16,19 +16,44 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Verify release tag matches package version
+      - name: Verify release versions and tag
         shell: bash
         run: |
-          PACKAGE_VERSION=$(python - <<'PY'
+          python - <<'PY'
+          import ast
+          import os
+          from pathlib import Path
           import tomllib
-          with open('pyproject.toml', 'rb') as f:
-              print(tomllib.load(f)['project']['version'])
+
+          with open("pyproject.toml", "rb") as f:
+              package_version = tomllib.load(f)["project"]["version"]
+
+          version_tree = ast.parse(Path("decishift/version.py").read_text(encoding="utf-8"))
+          runtime_version = None
+          for node in version_tree.body:
+              if not isinstance(node, ast.Assign):
+                  continue
+              for target in node.targets:
+                  if isinstance(target, ast.Name) and target.id == "__version__":
+                      if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+                          runtime_version = node.value.value
+
+          if runtime_version is None:
+              raise SystemExit("Could not read __version__ from decishift/version.py")
+          if runtime_version != package_version:
+              raise SystemExit(
+                  f"Runtime version {runtime_version} does not match pyproject version {package_version}."
+              )
+
+          release_tag = os.environ["GITHUB_REF_NAME"]
+          expected_tag = f"v{package_version}"
+          if release_tag != expected_tag:
+              raise SystemExit(
+                  f"Release tag {release_tag} does not match package version {expected_tag}."
+              )
+
+          print(f"Verified release {release_tag}: package/runtime version {package_version}.")
           PY
-          )
-          if [ "${GITHUB_REF_NAME}" != "v${PACKAGE_VERSION}" ]; then
-            echo "Release tag ${GITHUB_REF_NAME} does not match pyproject version v${PACKAGE_VERSION}."
-            exit 1
-          fi
       - name: Build package
         run: |
           python -m pip install --upgrade pip

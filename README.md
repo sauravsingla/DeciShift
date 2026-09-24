@@ -279,4 +279,6 @@ DeciShift is local by default. The package contains no telemetry, data-upload pa
 
 ## License and citation
 
-Apache-2.0. See [LICENSE](LICENSE). Citation metadata is provided in `CITATION.cff`; the published v0.1.0 archive remains available through Zenodo DOI `10.5281/zenodo.22932949`.
+Apache-2.0. See [LICENSE](LICENSE). Citation metadata is provided in `CITATION.cff`.
+
+The current **v0.2.0** archive is available at Zenodo DOI [`10.5281/zenodo.22934681`](https://doi.org/10.5281/zenodo.22934681). The persistent all-versions concept DOI is [`10.5281/zenodo.22932948`](https://doi.org/10.5281/zenodo.22932948).

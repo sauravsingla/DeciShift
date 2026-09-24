@@ -1,10 +1,10 @@
 # DeciShift
 
 [![CI](https://github.com/sauravsingla/DeciShift/actions/workflows/tests.yml/badge.svg)](https://github.com/sauravsingla/DeciShift/actions/workflows/tests.yml)
-[![PyPI version](https://img.shields.io/pypi/v/decishift.svg)](https://pypi.org/project/decishift/)
-[![Python versions](https://img.shields.io/pypi/pyversions/decishift.svg)](https://pypi.org/project/decishift/)
+[![PyPI version](https://img.shields.io/badge/PyPI-v0.2.0-blue.svg)](https://pypi.org/project/decishift/0.2.0/)
+[![Python versions](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://pypi.org/project/decishift/0.2.0/)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22932948.svg)](https://doi.org/10.5281/zenodo.22932948)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22934681.svg)](https://doi.org/10.5281/zenodo.22934681)
 
 **Explain why decisions changed between ML system versions.**
 
@@ -289,4 +289,4 @@ DeciShift is local by default. The package contains no telemetry, data-upload pa
 
 Apache-2.0. See [LICENSE](LICENSE). Citation metadata is provided in `CITATION.cff`.
 
-The current **v0.2.0** archive is available at Zenodo DOI [`10.5281/zenodo.22934681`](https://doi.org/10.5281/zenodo.22934681). The persistent all-versions concept DOI is [`10.5281/zenodo.22932948`](https://doi.org/10.5281/zenodo.22932948).
+For reproducibility, cite the current **v0.2.0** archive using Zenodo DOI [`10.5281/zenodo.22934681`](https://doi.org/10.5281/zenodo.22934681).

@@ -1,4 +1,4 @@
-name: Publish README demo video
+name: Build README demo assets
 
 on:
   push:
@@ -8,10 +8,10 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  publish-video:
+  build-demo-assets:
     runs-on: ubuntu-24.04
     steps:
       - name: Check out repository
@@ -57,25 +57,17 @@ jobs:
             -vf "fps=4,scale=720:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=64:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle" \
             -loop 0 decishift-real-run-inline.gif
 
-      - name: Upload silent demo assets to v0.3.0 release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release upload v0.3.0 \
-            decishift-real-run-silent.mp4 \
-            decishift-real-run-inline.gif \
-            decishift-real-run-poster.png \
-            --clobber
-          gh release delete-asset v0.3.0 decishift-real-run-with-voice.mp4 -y || true
-
-      - name: Make silent demo autoplay inline in README
-        shell: bash
-        run: |
-          python -c 'from pathlib import Path; p=Path("README.md"); t=p.read_text(encoding="utf-8"); s=t.index("## 60-second real run"); e=t.index("\n## Install", s); r="## 60-second real run — silent inline playback\n\nThis demo is generated from a **fresh GitHub Actions execution** of the bundled synthetic triage DecisionFlow. The workflow runs `graph → compare → verify → gate`, then renders the actual results as a silent 60-second animation.\n\n![DeciShift 60-second real DecisionFlow run — silent inline playback](https://github.com/sauravsingla/DeciShift/releases/download/v0.3.0/decishift-real-run-inline.gif)\n\nThe recorded run compares 18 historical records: 11 actions change, giving a 61.11% action-shift rate. The largest software-counterfactual attribution is `failure_risk_model` at 34.51%, followed by `triage_policy` at 28.87%, `safety_rules` at 23.24%, and `sensor_features` at 13.38%. Evidence verification passes and the configured Decision Contract returns `PASS`. A contract pass means only that the observed changes remain inside the user-declared governance limits; it is not proof that the candidate is automatically safer, better, fairer, compliant or correct.\n\nThe animation plays directly in the README with no audio and no download required. A silent MP4 is also retained as a GitHub release asset. The demo is reproducible through [`Publish README demo video`](https://github.com/sauravsingla/DeciShift/actions/workflows/publish-readme-video.yml).\n"; p.write_text(t[:s]+r+t[e:], encoding="utf-8")'
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add README.md
-          if ! git diff --cached --quiet; then
-            git commit -m "docs: autoplay silent real-run demo in README"
-            git push
-          fi
+      - name: Upload generated demo assets as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: decishift-readme-demo-${{ github.sha }}
+          path: |
+            decishift-real-run-silent.mp4
+            decishift-real-run-inline.gif
+            decishift-real-run-poster.png
+            video-run/graph.txt
+            video-run/compare.txt
+            video-run/verify.txt
+            video-run/gate.txt
+          if-no-files-found: error
+          retention-days: 14

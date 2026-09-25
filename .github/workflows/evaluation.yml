@@ -1,15 +1,6 @@
 name: evaluation
 
 on:
-  pull_request:
-    paths:
-      - "examples/public_wine_sklearn/**"
-      - "examples/public_digits_xgboost/**"
-      - "benchmarks/benchmark_flow_cpu.py"
-      - "benchmarks/evaluate_flow_attribution.py"
-      - "decishift/flow/**"
-      - "decishift/adapters/**"
-      - ".github/workflows/evaluation.yml"
   workflow_dispatch:
     inputs:
       include_million:
@@ -22,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: evaluation-${{ github.event.pull_request.number || github.ref }}
+  group: evaluation-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -30,11 +21,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
-      DECISHIFT_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+      DECISHIFT_SOURCE_COMMIT: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -56,7 +47,7 @@ jobs:
         run: |
           set -euo pipefail
           EXTRA=()
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.include_million }}" == "true" ]]; then
+          if [[ "${{ inputs.include_million }}" == "true" ]]; then
             EXTRA+=(--include-million)
           fi
           python benchmarks/evaluate_flow_attribution.py \

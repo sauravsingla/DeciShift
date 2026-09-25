@@ -2,7 +2,7 @@
 
 All notable changes to DeciShift are documented here.
 
-## 0.3.1 - Unreleased
+## 0.3.1 - 2026-09-25
 
 Theme: **Trust and evaluation hardening**.
 
@@ -28,7 +28,8 @@ Theme: **Trust and evaluation hardening**.
 
 - Keep release validation on Python 3.11, 3.12, and 3.13 before build/publish.
 - Keep PyPI Trusted Publishing with least-privilege `id-token: write` only in the publishing job.
-- Existing tagged release assets remain untouched; this unreleased section describes changes currently on `main` only after merge.
+- Existing tagged release assets remain untouched.
+- v0.3.1 is released under an explicit repository-owner exception without `main` branch protection; issue #7 remains open to require branch-level enforcement for future releases.
 
 ## 0.3.0 - 2026-09-24
 

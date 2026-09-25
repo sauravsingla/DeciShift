@@ -9,19 +9,9 @@ on:
         description: "Existing release tag to build and publish"
         required: true
         type: string
-  # One-time bootstrap for v0.3.1. Remove this push trigger after publication.
-  # A release created by GITHUB_TOKEN does not recursively trigger release events.
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/release.yml"
 
 permissions:
   contents: read
-
-env:
-  RELEASE_REF: ${{ github.event_name == 'push' && 'v0.3.1' || github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
-  RELEASE_TAG: ${{ github.event_name == 'push' && 'v0.3.1' || github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
 
 jobs:
   validate-release:
@@ -33,14 +23,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ env.RELEASE_REF }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
           persist-credentials: false
-      - name: Verify one-time v0.3.1 bootstrap source
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD)" = "082250abc1c0a82a41480949594168bb56f323ad"
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
@@ -68,10 +52,12 @@ jobs:
     name: build distributions
     needs: validate-release
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ env.RELEASE_REF }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:

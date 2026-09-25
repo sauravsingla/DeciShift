@@ -1,0 +1,63 @@
+name: Publish README demo video
+
+on:
+  push:
+    paths:
+      - ".github/workflows/publish-readme-video.yml"
+      - ".github/scripts/build_readme_video.py"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish-video:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system video tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg espeak
+
+      - name: Install DeciShift and video builder dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install Pillow
+
+      - name: Execute real DecisionFlow run
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p video-run
+          decishift graph examples/triage/flow.yaml > video-run/graph.txt
+          FLOW_OUTPUT=$(decishift compare examples/triage/flow.yaml)
+          printf '%s\n' "$FLOW_OUTPUT" | tee video-run/compare.txt
+          RUN_ID=$(printf '%s\n' "$FLOW_OUTPUT" | sed -n 's/^Run ID: //p' | tail -n 1)
+          test -n "$RUN_ID"
+          decishift verify "$RUN_ID" | tee video-run/verify.txt
+          decishift gate "$RUN_ID" --contract examples/triage/decision-contract.yaml | tee video-run/gate.txt
+
+      - name: Build 60-second narrated video
+        run: |
+          python .github/scripts/build_readme_video.py \
+            --input-dir video-run \
+            --output decishift-real-run-with-voice.mp4 \
+            --poster decishift-real-run-poster.png
+
+      - name: Upload video and poster to v0.3.0 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload v0.3.0 \
+            decishift-real-run-with-voice.mp4 \
+            decishift-real-run-poster.png \
+            --clobber

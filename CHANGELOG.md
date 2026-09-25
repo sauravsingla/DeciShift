@@ -12,6 +12,7 @@ Theme: **Trust and evaluation hardening**.
 - A reproducible decision-change case study where model quality improves while individual actions still change, with transition, attribution, and cohort-contract evidence.
 - Commit-tied machine-generated flow benchmark snapshots for 10,000 and 100,000 records, with optional 1,000,000-record runs, exact-versus-sampled attribution, cache reuse, wall time, Python memory, and convergence diagnostics.
 - Regression coverage for input isolation, content-bound pipeline caching, cache-mutation resistance, hybrid replay invalidation, evidence-verification failure modes, and configuration validation.
+- Regression enforcement that rejects third-party GitHub Actions unless they are pinned to immutable 40-character commit SHAs and rejects checkout steps that persist repository credentials.
 
 ### Changed
 
@@ -28,6 +29,7 @@ Theme: **Trust and evaluation hardening**.
 
 - Keep release validation on Python 3.11, 3.12, and 3.13 before build/publish.
 - Keep PyPI Trusted Publishing with least-privilege `id-token: write` only in the publishing job.
+- Fail closed before release validation unless `main` is protected and the release tag resolves to the current protected `main` head.
 - Existing tagged release assets remain untouched; this unreleased section describes changes currently on `main` only after merge.
 
 ## 0.3.0 - 2026-09-24

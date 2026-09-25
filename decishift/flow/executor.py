@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import copy
 import inspect
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
 import pandas as pd
+
+from decishift.evidence import fingerprint_dataframe
 
 from decishift.core.exceptions import ComponentExecutionError
 from decishift.flow.flow import DecisionFlow
@@ -63,21 +66,24 @@ class FlowExecutor:
         flow.validate_reproducibility()
         outputs: dict[str, Any] = {}
         keys: dict[str, tuple] = {}
+        records_fingerprint = fingerprint_dataframe(self.records)
         hits = 0
         misses = 0
 
         for name in flow.topological_order:
             node = flow.node(name)
             dependency_key = tuple((dep, keys[dep]) for dep in sorted(node.depends_on))
-            key = ("flow-node", name, node.cache_token(), dependency_key)
-            inputs = {dep: outputs[dep] for dep in node.depends_on}
+            key = ("flow-node", records_fingerprint, name, node.cache_token(), dependency_key)
+            # Give user code isolated dependency values so an in-place mutation cannot
+            # corrupt upstream outputs or the cache entry used by later evaluations.
+            inputs = {dep: copy.deepcopy(outputs[dep]) for dep in node.depends_on}
             if key in self.node_cache:
-                output = self.node_cache[key]
+                output = copy.deepcopy(self.node_cache[key])
                 hits += 1
             else:
                 output = _invoke_node(node.component, name, self.records, inputs)
                 output = validate_row_aligned_output(name, output, self.records)
-                self.node_cache[key] = output
+                self.node_cache[key] = copy.deepcopy(output)
                 misses += 1
             outputs[name] = output
             keys[name] = key

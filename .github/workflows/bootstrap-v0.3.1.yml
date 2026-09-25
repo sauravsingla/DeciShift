@@ -1,0 +1,108 @@
+name: Bootstrap v0.3.1 GitHub Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/bootstrap-v0.3.1.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bootstrap-v0.3.1-release
+  cancel-in-progress: false
+
+jobs:
+  publish-release:
+    name: publish GitHub release v0.3.1
+    runs-on: ubuntu-24.04
+    env:
+      TARGET_SHA: 082250abc1c0a82a41480949594168bb56f323ad
+      RELEASE_TAG: v0.3.1
+    steps:
+      - name: Check out immutable release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact release source and version metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+          import tomllib
+
+          expected = "0.3.1"
+          with open("pyproject.toml", "rb") as handle:
+              package_version = tomllib.load(handle)["project"]["version"]
+
+          tree = ast.parse(Path("decishift/version.py").read_text(encoding="utf-8"))
+          runtime_version = None
+          for node in tree.body:
+              if isinstance(node, ast.Assign):
+                  for target in node.targets:
+                      if isinstance(target, ast.Name) and target.id == "__version__":
+                          if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+                              runtime_version = node.value.value
+
+          if package_version != expected or runtime_version != expected:
+              raise SystemExit(
+                  f"Refusing release: expected {expected}, got package={package_version}, runtime={runtime_version}"
+              )
+          print(f"Verified DeciShift {expected} at immutable source commit.")
+          PY
+
+      - name: Assert v0.3.1 does not already exist
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; refusing to mutate it."
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Tag $RELEASE_TAG already exists; refusing to move or reuse it."
+            exit 1
+          fi
+
+      - name: Publish immutable v0.3.1 GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cat > release-notes.md <<'EOF'
+          DeciShift v0.3.1 — Trust and evaluation hardening
+
+          This release strengthens the trust layer around decision-change evidence while adding reproducible public-data evaluation.
+
+          ### Highlights
+          - Public trained DecisionFlow examples using scikit-learn Wine and XGBoost Digits datasets.
+          - Machine-generated decision-change case study: improved model metrics while 4.17% of individual actions changed, with exact component attribution and a governed cohort contract returning BLOCK.
+          - Commit-tied 10K/100K exact-vs-sampled attribution benchmark snapshots with cache reuse, wall time, Python allocation and convergence diagnostics.
+          - Legacy DecisionPipeline caches bound to input-content fingerprints with defensive-copy and caller-input isolation protections.
+          - Hybrid replay invalidation when record content changes.
+          - Enforced branch-aware coverage floor raised to 80% with targeted trust-path regression tests.
+          - GitHub Actions refreshed and pinned to immutable commit SHAs; release publication continues through PyPI Trusted Publishing/OIDC.
+          - Expanded security and reproducibility documentation, including integrity-vs-authenticity limits.
+
+          ### Release-source note
+          The v0.3.1 tag is created from exact commit `082250abc1c0a82a41480949594168bb56f323ad`, which passed the repository's full post-merge test matrix. The repository owner explicitly authorized this release without `main` branch protection; issue #7 tracks enabling branch-level enforcement for future releases.
+
+          ### Scientific scope
+          DeciShift attribution is software-counterfactual attribution. It does not establish real-world causality, safety, fairness, compliance or production fitness.
+          EOF
+
+          gh release create "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$TARGET_SHA" \
+            --title "DeciShift v0.3.1 — Trust and evaluation hardening" \
+            --notes-file release-notes.md

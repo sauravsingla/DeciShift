@@ -295,6 +295,25 @@ sensor_features
 
 Actions are `monitor`, `inspect`, and `service`. Baseline/candidate versions change a sensor transform, risk model, policy and safety rule and generate categorical transitions on the bundled synthetic records. No fraud, payments, mule-detection or employer-specific data is used.
 
+## Public trained-flow evaluation
+
+The source repository now also includes two complete public-data flows with genuinely trained models:
+
+- [`examples/public_wine_sklearn/`](examples/public_wine_sklearn/) — scikit-learn Wine data with a trained logistic-regression score driving `route_not_class2`, `manual_review`, and `route_class2`.
+- [`examples/public_digits_xgboost/`](examples/public_digits_xgboost/) — scikit-learn Digits data with a trained XGBoost score driving `auto_not_8`, `manual_review`, and `auto_8`.
+
+Each example compares **feature-only**, **model-only**, **policy-only**, **rule-only**, and **combined** changes against the same baseline so the behavior of each versioned layer can be inspected independently.
+
+### Decision-change case study
+
+A machine-generated Digits/XGBoost case study shows the distinction between model monitoring and decision-change evidence. On its fixed public evaluation split, candidate model accuracy improves from **90.26% to 91.79%** and ROC AUC from **0.9429 to 0.9472**. Aggregate final-action counts stay close, but **30 of 719 individual actions change (4.17%)**.
+
+The changed transitions are 13 `auto_not_8→manual_review`, 8 `manual_review→auto_8`, and 9 `manual_review→auto_not_8`. Exact software-counterfactual attribution assigns 48.86% of absolute attribution mass to the model, 46.59% to policy, and 4.55% to rules. The overall 5% action-shift contract passes, but the candidate is **blocked** because the `actual_digit=6` cohort shifts at **9.41%**, above its declared **8%** limit.
+
+That is the intended use case: an aggregate model metric can improve and the overall action mix can look similar while individual decisions and one governed cohort still move materially.
+
+The figures above come from the committed machine-generated snapshot for source commit [`76bbf63abb7fdbba26739f3c8f96f94e0110bfc8`](docs/case-studies/digits-xgboost-76bbf63abb7fdbba26739f3c8f96f94e0110bfc8.md). They are descriptive evidence over this public split; software-counterfactual attribution does not establish real-world causality.
+
 ## Benchmarks
 
 Existing binary benchmark:
@@ -309,7 +328,17 @@ DecisionFlow benchmark:
 python benchmarks/benchmark_flow_cpu.py
 ```
 
-The flow benchmark executes linear 5-node and branched 8-node cases at 10,000 and 100,000 rows, measuring wall-clock time, `tracemalloc` peak Python memory, cache hits/misses, nodes executed/reused, exact attribution where feasible and adaptive approximate attribution. No benchmark numbers are fabricated or hard-coded into this README.
+Reproducible exact-vs-sampled evaluation:
+
+```bash
+python benchmarks/evaluate_flow_attribution.py \
+  --json-out evaluation-artifacts/flow-benchmark.json \
+  --markdown-out evaluation-artifacts/flow-benchmark.md
+```
+
+The evaluation benchmark runs linear 5-node and branched 8-node cases at 10,000 and 100,000 rows by default, with an explicit optional 1,000,000-record mode. It records wall-clock time, `tracemalloc` peak Python memory, changed-node/action counts, cache reuse, exact versus sampled attribution, efficiency and sampling-convergence diagnostics.
+
+No benchmark timing or memory number is fabricated or hand-entered into this README. Published measurements live in commit-tied machine-generated snapshots; the first is [`benchmarks/results/76bbf63abb7fdbba26739f3c8f96f94e0110bfc8.md`](benchmarks/results/76bbf63abb7fdbba26739f3c8f96f94e0110bfc8.md). In that run, bounded sampled attribution did not meet the requested CI-width convergence target for the 3–4 changed-node cases, while exact attribution was faster; the measured result is retained rather than tuned away.
 
 ## Tests and quality gate
 
@@ -322,7 +351,7 @@ python -m twine check dist/*
 decishift demo --rows 1000 --no-save
 ```
 
-CI runs the quality gate on Python 3.11, 3.12 and 3.13 and additionally exercises the flow graph/compare/verify/gate path.
+CI runs the quality gate on Python 3.11, 3.12 and 3.13 and additionally exercises the flow graph/compare/verify/gate path. The public scikit-learn and XGBoost flows are also executed in CI, and a separate read-only evaluation workflow generates commit-scoped evidence artifacts.
 
 ## Documentation
 
@@ -333,6 +362,7 @@ CI runs the quality gate on Python 3.11, 3.12 and 3.13 and additionally exercise
 - [Adaptive attribution](https://github.com/sauravsingla/DeciShift/blob/main/docs/adaptive-attribution.md)
 - [Decision Contracts](https://github.com/sauravsingla/DeciShift/blob/main/docs/decision-contracts.md)
 - [Evidence integrity](https://github.com/sauravsingla/DeciShift/blob/main/docs/evidence-integrity.md)
+- [Evaluation study](https://github.com/sauravsingla/DeciShift/blob/main/docs/evaluation-study.md)
 - [Limitations](https://github.com/sauravsingla/DeciShift/blob/main/docs/limitations.md)
 
 ## Research positioning

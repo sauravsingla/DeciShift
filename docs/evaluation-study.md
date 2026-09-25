@@ -69,7 +69,7 @@ For each flow/size it records both **exact** and **sampled** attribution with:
 - sampling precision/convergence;
 - maximum confidence-interval width.
 
-The sampled protocol uses a deterministic seed and adaptive bounds of 32–256 permutations with a target CI width of 0.05.
+The sampled protocol uses a deterministic seed and bounded adaptive sampling of 16–64 permutations, in batches of 8, with a target CI width of 0.10. The table records whether that bounded run actually reaches the requested convergence target rather than assuming that it did.
 
 Memory is explicitly `tracemalloc` peak Python allocation, **not process RSS**.
 

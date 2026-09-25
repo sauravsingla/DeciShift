@@ -215,7 +215,7 @@ Flow evidence persists topology/digests, node identities, changed nodes, groups,
 decishift verify RUN_ID
 ```
 
-Verification is tamper-evident integrity checking, not signer authentication.
+Verification is tamper-evident integrity checking, not evidence authenticity or signer authentication. A passing verification shows internal SHA-256 consistency of the saved bundle; it does not prove who created it or that the original inputs were trusted.
 
 ## Decision Contracts
 

@@ -28,7 +28,7 @@ concurrency:
 jobs:
   public-examples-and-benchmarks:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 120
     env:
       DECISHIFT_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:

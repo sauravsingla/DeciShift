@@ -1,0 +1,62 @@
+name: evaluation
+
+on:
+  workflow_dispatch:
+    inputs:
+      include_million:
+        description: "Also run the 1,000,000-record benchmark"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evaluation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  public-examples-and-benchmarks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      DECISHIFT_SOURCE_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[dev,xgboost]'
+      - name: Public scikit-learn flow
+        run: |
+          mkdir -p evaluation-artifacts
+          python examples/public_wine_sklearn/run.py \
+            --json-out evaluation-artifacts/wine-sklearn.json
+      - name: Public XGBoost flow and decision-change case study
+        run: |
+          python examples/public_digits_xgboost/run.py \
+            --json-out evaluation-artifacts/digits-xgboost.json \
+            --markdown-out evaluation-artifacts/decision-change-case-study.md
+          cat evaluation-artifacts/decision-change-case-study.md
+      - name: Reproducible flow benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXTRA=()
+          if [[ "${{ inputs.include_million }}" == "true" ]]; then
+            EXTRA+=(--include-million)
+          fi
+          python benchmarks/evaluate_flow_attribution.py \
+            --json-out evaluation-artifacts/flow-benchmark.json \
+            --markdown-out evaluation-artifacts/flow-benchmark.md \
+            "${EXTRA[@]}"
+          cat evaluation-artifacts/flow-benchmark.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: decishift-evaluation-${{ env.DECISHIFT_SOURCE_COMMIT }}
+          path: evaluation-artifacts/
+          if-no-files-found: error

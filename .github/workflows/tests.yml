@@ -39,6 +39,9 @@ jobs:
           test -n "$RUN_ID"
           decishift verify "$RUN_ID"
           decishift gate "$RUN_ID" --contract examples/triage/decision-contract.yaml
+      - name: Public scikit-learn DecisionFlow
+        if: matrix.python-version == '3.11'
+        run: python examples/public_wine_sklearn/run.py
 
   minimum-supported-dependencies:
     name: minimum-supported-dependencies
@@ -88,6 +91,8 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e '.[dev,xgboost]'
       - run: pytest tests/test_optional_adapters.py -k xgboost
+      - name: Public XGBoost DecisionFlow
+        run: python examples/public_digits_xgboost/run.py
 
   lightgbm-optional:
     name: optional-dependency / lightgbm

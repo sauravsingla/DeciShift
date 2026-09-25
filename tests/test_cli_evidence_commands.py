@@ -38,7 +38,8 @@ def test_saved_evidence_report_explain_and_compare_runs(tmp_path: Path, monkeypa
     json_report = runner.invoke(app, ["report", run_id, "--format", "json"])
     assert json_report.exit_code == 0, json_report.output
     payload = json.loads(json_report.output)
-    assert payload["metadata"]["mode"] == "flow"
+    assert payload["summary"]["total_records"] == 18
+    assert payload["topology_compatible"] is True
 
     html = runner.invoke(app, ["report", run_id, "--format", "html"])
     assert html.exit_code == 0, html.output

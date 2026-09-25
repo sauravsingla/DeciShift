@@ -52,9 +52,7 @@ jobs:
             --input-dir video-run \
             --output video-run/narrated-temp.mp4 \
             --poster decishift-real-run-poster.png
-
           cp video-run/silent.mp4 decishift-real-run-silent.mp4
-
           ffmpeg -y -i video-run/silent.mp4 \
             -vf "fps=4,scale=720:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=64:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle" \
             -loop 0 decishift-real-run-inline.gif
@@ -73,26 +71,7 @@ jobs:
       - name: Make silent demo autoplay inline in README
         shell: bash
         run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          path = Path("README.md")
-          text = path.read_text(encoding="utf-8")
-          start = text.index("## 60-second real run")
-          end = text.index("\n## Install", start)
-          replacement = '''## 60-second real run — silent inline playback
-
-This demo is generated from a **fresh GitHub Actions execution** of the bundled synthetic triage DecisionFlow. The workflow runs `graph → compare → verify → gate`, then renders the actual results as a silent 60-second animation.
-
-![DeciShift 60-second real DecisionFlow run — silent inline playback](https://github.com/sauravsingla/DeciShift/releases/download/v0.3.0/decishift-real-run-inline.gif)
-
-The recorded run compares 18 historical records: 11 actions change, giving a 61.11% action-shift rate. The largest software-counterfactual attribution is `failure_risk_model` at 34.51%, followed by `triage_policy` at 28.87%, `safety_rules` at 23.24%, and `sensor_features` at 13.38%. Evidence verification passes and the configured Decision Contract returns `PASS`. A contract pass means only that the observed changes remain inside the user-declared governance limits; it is not proof that the candidate is automatically safer, better, fairer, compliant or correct.
-
-The animation plays directly in the README with no audio and no download required. A silent MP4 is also retained as a GitHub release asset. The demo is reproducible through [`Publish README demo video`](https://github.com/sauravsingla/DeciShift/actions/workflows/publish-readme-video.yml).
-'''
-          path.write_text(text[:start] + replacement + text[end:], encoding="utf-8")
-          PY
-
+          python -c 'from pathlib import Path; p=Path("README.md"); t=p.read_text(encoding="utf-8"); s=t.index("## 60-second real run"); e=t.index("\n## Install", s); r="## 60-second real run — silent inline playback\n\nThis demo is generated from a **fresh GitHub Actions execution** of the bundled synthetic triage DecisionFlow. The workflow runs `graph → compare → verify → gate`, then renders the actual results as a silent 60-second animation.\n\n![DeciShift 60-second real DecisionFlow run — silent inline playback](https://github.com/sauravsingla/DeciShift/releases/download/v0.3.0/decishift-real-run-inline.gif)\n\nThe recorded run compares 18 historical records: 11 actions change, giving a 61.11% action-shift rate. The largest software-counterfactual attribution is `failure_risk_model` at 34.51%, followed by `triage_policy` at 28.87%, `safety_rules` at 23.24%, and `sensor_features` at 13.38%. Evidence verification passes and the configured Decision Contract returns `PASS`. A contract pass means only that the observed changes remain inside the user-declared governance limits; it is not proof that the candidate is automatically safer, better, fairer, compliant or correct.\n\nThe animation plays directly in the README with no audio and no download required. A silent MP4 is also retained as a GitHub release asset. The demo is reproducible through [`Publish README demo video`](https://github.com/sauravsingla/DeciShift/actions/workflows/publish-readme-video.yml).\n"; p.write_text(t[:s]+r+t[e:], encoding="utf-8")'
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add README.md

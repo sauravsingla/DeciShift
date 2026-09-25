@@ -299,5 +299,9 @@ def verify_evidence_path(path: str | Path) -> VerificationResult:
         expected_integrity_root=expected_root,
         items=items,
         manifest_status="PASS" if manifest_ok else "FAIL",
-        message="Evidence bundle verified." if passed else "Evidence verification FAILED.",
+        message=(
+            "Evidence integrity verified; authenticity and signer identity are not established."
+            if passed else
+            "Evidence integrity verification FAILED; authenticity is not assessed."
+        ),
     )

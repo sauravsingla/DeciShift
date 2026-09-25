@@ -24,6 +24,13 @@ class DecisionOutput:
 
 def validate_row_aligned_output(name: str, output: Any, records: pd.DataFrame) -> Any:
     if isinstance(output, DecisionOutput):
+        # Structured outputs are valid at intermediate nodes too, but every field
+        # they expose must preserve row identity just like plain node outputs.
+        _vector(output.action, records, f"Node '{name}' action")
+        if output.score is not None:
+            _vector(output.score, records, f"Node '{name}' score", numeric=True)
+        if output.margin is not None:
+            _vector(output.margin, records, f"Node '{name}' margin", numeric=True)
         return output
     if isinstance(output, (str, bytes)) or np.isscalar(output):
         raise ValueError(f"Node '{name}' must return one row-aligned value/object per input record")

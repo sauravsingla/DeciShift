@@ -110,3 +110,55 @@ def test_row_reordering_is_rejected():
     flow = DecisionFlow([DecisionNode("final", Reorder(), version="bad1")], "final")
     with pytest.raises(ValueError, match="reordered or changed index"):
         FlowExecutor(records).evaluate(flow)
+
+
+def test_intermediate_decision_output_alignment_is_validated():
+    from decishift.flow.trace import DecisionOutput
+
+    class BadIntermediate:
+        version = "bad_v1"
+        def run(self, records, inputs):
+            return DecisionOutput(action=pd.Series(["x"], index=records.index[:1]))
+
+    class Consume:
+        version = "consume_v1"
+        def run(self, records, inputs):
+            return pd.Series(["monitor"] * len(records), index=records.index)
+
+    records = pd.DataFrame({"x": [1, 2]})
+    flow = DecisionFlow([
+        DecisionNode("bad", BadIntermediate(), version="bad_v1"),
+        DecisionNode("final", Consume(), ("bad",), version="consume_v1"),
+    ], "final")
+    with pytest.raises(ValueError, match="pandas index does not match input record order"):
+        FlowExecutor(records).evaluate(flow)
+
+
+def test_cache_isolated_from_component_mutation_and_record_changes():
+    class Source:
+        version = "source_v1"
+        def run(self, records, inputs):
+            return records[["x"]].copy()
+
+    class Mutator:
+        version = "mutator_v1"
+        def run(self, records, inputs):
+            inputs["source"].iloc[0, 0] = 999
+            return pd.Series(["monitor"] * len(records), index=records.index)
+
+    records = pd.DataFrame({"x": [1, 2]})
+    flow = DecisionFlow([
+        DecisionNode("source", Source(), version="source_v1"),
+        DecisionNode("final", Mutator(), ("source",), version="mutator_v1"),
+    ], "final")
+    executor = FlowExecutor(records)
+    first = executor.evaluate(flow)
+    assert first.output("source").iloc[0, 0] == 1
+    second = executor.evaluate(flow)
+    assert second.cache_hits == 2
+    assert second.output("source").iloc[0, 0] == 1
+
+    records.loc[0, "x"] = 7
+    third = executor.evaluate(flow)
+    assert third.cache_misses == 2
+    assert third.output("source").iloc[0, 0] == 7

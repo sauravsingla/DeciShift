@@ -45,7 +45,10 @@ def test_flow_evidence_schema_two_round_trip_and_verify(tmp_path):
     assert manifest["topology_compatible"] is True
     assert manifest["attribution_target"] == "candidate_action_support"
     assert "transition_matrix" in manifest
-    assert store.verify(run_id).passed
+    verification = store.verify(run_id)
+    assert verification.passed
+    assert "authenticity" in verification.message.lower()
+    assert "not established" in verification.message.lower()
     loaded = store.load(run_id)
     assert loaded.metadata["mode"] == "flow"
     assert loaded.summary()["action_shift_rate"] == 0.75

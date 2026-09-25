@@ -22,6 +22,8 @@ permissions:
 jobs:
   public-examples-and-benchmarks:
     runs-on: ubuntu-latest
+    env:
+      DECISHIFT_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -48,7 +50,6 @@ jobs:
           if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.include_million }}" == "true" ]]; then
             EXTRA+=(--include-million)
           fi
-          DECISHIFT_SOURCE_COMMIT="${{ github.sha }}" \
           python benchmarks/evaluate_flow_attribution.py \
             --json-out evaluation-artifacts/flow-benchmark.json \
             --markdown-out evaluation-artifacts/flow-benchmark.md \
@@ -56,6 +57,6 @@ jobs:
           cat evaluation-artifacts/flow-benchmark.md
       - uses: actions/upload-artifact@v4
         with:
-          name: decishift-evaluation-${{ github.sha }}
+          name: decishift-evaluation-${{ env.DECISHIFT_SOURCE_COMMIT }}
           path: evaluation-artifacts/
           if-no-files-found: error

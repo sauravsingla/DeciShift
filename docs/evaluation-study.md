@@ -91,9 +91,11 @@ A useful result from that run is that exact attribution was faster for these 3â€
 
 ## Reproducibility and publication discipline
 
-Every benchmark payload records the source commit SHA, Python version, NumPy version, pandas version and runner platform. The workflow checks out the exact source SHA it reports, never writes to `main`, and never overwrites versioned release assets. It uploads commit-scoped artifacts.
+Every benchmark payload records the source commit SHA, Python version, NumPy version, pandas version and runner platform. The current workflow explicitly checks out the exact source SHA it reports, never writes to `main`, and never overwrites versioned release assets. It uploads commit-scoped artifacts.
 
-Committed benchmark snapshots live under `benchmarks/results/` and must retain the source SHA that produced them. README documentation should link to those generated snapshots rather than hand-entering timing or memory numbers.
+The first published run predated that explicit-checkout hardening and used GitHub's pull-request merge ref. Git inspection confirmed that the merge ref and recorded source head had the same tree SHA (`b46035d26dc9c7b93eb7092a6768edc6f2d9b86d`), so the executed file tree was identical. The workflow was then corrected so future provenance does not rely on that equivalence.
+
+Committed benchmark snapshots live under `benchmarks/results/` and retain the source SHA recorded by the generating job. README documentation should link to those generated snapshots rather than hand-entering timing or memory numbers.
 
 For the first snapshot, the durable Actions artifact was `10846941370` with digest `sha256:c80b98c0fd2188d403d7a79c4a39efe934ea1b2fd859074fdd3c531272508e84`.
 

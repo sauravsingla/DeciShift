@@ -3,43 +3,104 @@
 [![CI](https://github.com/sauravsingla/DeciShift/actions/workflows/tests.yml/badge.svg)](https://github.com/sauravsingla/DeciShift/actions/workflows/tests.yml)
 [![PyPI version](https://img.shields.io/badge/PyPI-v0.3.0-blue.svg)](https://pypi.org/project/decishift/0.3.0/)
 [![Python versions](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://pypi.org/project/decishift/0.3.0/)
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](https://github.com/sauravsingla/DeciShift/blob/main/LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22942359.svg)](https://doi.org/10.5281/zenodo.22942359)
 
-**Explain why decisions changed between versions of an ML decision system.**
+**Explain why final decisions changed between versions of an ML decision system.**
 
-> Your candidate model or policy improved a metric. But historical decisions changed. Which ones changed, which software nodes contributed, and what evidence supports that conclusion?
+A candidate model can improve an aggregate metric while individual operational decisions still change. DeciShift compares two executable versions of a decision system and answers four questions:
 
-Git explains **which code changed**. Model monitoring explains **whether metrics changed**. DeciShift explains **which final decisions/actions changed and which versioned parts of the executable decision system contributed to those changes**.
+1. **Which records changed action?**
+2. **Which action transitions occurred?**
+3. **Which versioned features, models, policies or rules contributed to those changes?**
+4. **Do the observed changes remain inside declared governance limits?**
+
+Git explains **which code changed**. Monitoring explains **whether aggregate metrics changed**. DeciShift focuses on **which final decisions changed and how those changes map back to versioned parts of the executable decision system**.
 
 DeciShift is CPU-first, local-first, offline-capable and framework-agnostic. It requires no GPU, cloud service, database, Docker runtime, LLM/API, telemetry, model registry or hosted dashboard.
 
-## 60-second real run
+## Public-data result: the gap DeciShift is built to expose
 
-The workflow runs `graph → compare → verify → gate`.
+The repository includes a machine-generated case study using the public scikit-learn **Digits** dataset with a genuinely trained XGBoost model driving a three-action policy: `auto_not_8`, `manual_review`, and `auto_8`.
 
-![DeciShift 60-second real DecisionFlow run](https://github.com/sauravsingla/DeciShift/releases/download/v0.3.0/decishift-real-run-inline.gif)
+On a fixed held-out split of **719 records**:
 
-The recorded run compares 18 historical records: 11 actions change, giving a 61.11% action-shift rate. The largest software-counterfactual attribution is `failure_risk_model` at 34.51%, followed by `triage_policy` at 28.87%, `safety_rules` at 23.24%, and `sensor_features` at 13.38%. Evidence verification passes and the configured Decision Contract returns `PASS`. A contract pass means only that the observed changes remain inside the user-declared governance limits; it is not proof that the candidate is automatically safer, better, fairer, compliant or correct.
+| Measure | Baseline | Candidate |
+|---|---:|---:|
+| Model accuracy | 90.26% | **91.79%** |
+| ROC AUC | 0.9429 | **0.9472** |
+| `auto_8` actions | 66 | 74 |
+| `auto_not_8` actions | 530 | 526 |
+| `manual_review` actions | 123 | 119 |
 
-## Install
+The aggregate action mix remains close, but **30 of 719 individual actions changed (4.17%)**.
 
-The current release is **v0.3.0**:
+Changed transitions:
+
+| Transition | Records |
+|---|---:|
+| `auto_not_8 → manual_review` | 13 |
+| `manual_review → auto_8` | 8 |
+| `manual_review → auto_not_8` | 9 |
+
+Exact software-counterfactual attribution over the changed nodes assigns the following absolute attribution share:
+
+| Node | Share |
+|---|---:|
+| Model | **48.86%** |
+| Policy | **46.59%** |
+| Rules | **4.55%** |
+
+The global Decision Contract passes its **5%** action-shift limit because the observed shift is **4.17%**. The same contract still returns **BLOCK** because the `actual_digit=6` cohort shifts **9.41%**, above its declared **8%** limit.
+
+That is the central use case:
+
+> **model metric improves → aggregate action mix looks similar → individual actions still move → DeciShift identifies the transitions, attributes them across versioned components, and can block a governed cohort**
+
+These figures come from the committed machine-generated snapshot for source commit [`76bbf63abb7fdbba26739f3c8f96f94e0110bfc8`](docs/case-studies/digits-xgboost-76bbf63abb7fdbba26739f3c8f96f94e0110bfc8.md). They are descriptive evidence over this public evaluation split, not a claim of production safety, fairness, compliance or real-world causality.
+
+## Quick start
+
+Current release: **v0.3.0 — Composable Decision Flows**.
 
 ```bash
 python -m pip install --upgrade decishift==0.3.0
+```
+
+Run the bundled demo:
+
+```bash
 decishift demo --rows 1000 --no-save
 ```
 
-For development from a source checkout:
+Run the full DecisionFlow trust path from a source checkout:
 
 ```bash
 python -m pip install -e ".[dev]"
+
 decishift graph examples/triage/flow.yaml
+
 decishift compare examples/triage/flow.yaml
 ```
 
-## v0.3.0 — Composable Decision Flows
+A saved run can then be checked and gated with:
+
+```bash
+decishift verify RUN_ID
+decishift gate RUN_ID --contract examples/triage/decision-contract.yaml
+```
+
+## 60-second real run
+
+The bundled workflow demonstrates `graph → compare → verify → gate` on the synthetic equipment-maintenance DecisionFlow.
+
+![DeciShift 60-second real DecisionFlow run](https://github.com/sauravsingla/DeciShift/releases/download/v0.3.0/decishift-real-run-inline.gif)
+
+The recorded run compares 18 historical records. Eleven final actions change, for a 61.11% action-shift rate. Software-counterfactual attribution assigns 34.51% to `failure_risk_model`, 28.87% to `triage_policy`, 23.24% to `safety_rules`, and 13.38% to `sensor_features`. Evidence verification passes and the configured Decision Contract returns `PASS`.
+
+A contract pass means only that the observed evidence stayed inside the user-declared limits. It is not proof that a candidate is automatically safer, better, fairer, compliant or correct.
+
+## How DeciShift models a decision system
 
 `DecisionPipeline` remains the backwards-compatible API for the original simple binary path:
 
@@ -47,7 +108,7 @@ decishift compare examples/triage/flow.yaml
 features -> model -> calibrator -> threshold -> rules -> binary decision
 ```
 
-v0.3.0 adds `DecisionFlow` for deterministic row-aligned DAGs:
+`DecisionFlow` represents a deterministic row-aligned DAG whose final node emits the operational action:
 
 ```text
 features
@@ -55,33 +116,7 @@ features
 └── value_model ─┼── policy -> rules -> action
 ```
 
-This supports branching, merging, multiple models/policy stages and categorical actions such as `monitor`, `inspect`, `service` or `approve`, `manual_review`, `decline` without turning DeciShift into a generic workflow engine.
-
-An **illustrative report shape** (not benchmark output) is:
-
-```text
-Historical records: 100,000
-Actions changed:     2,841
-Action-shift rate:   2.84%
-
-Transitions
-monitor -> inspect
-inspect -> service
-service -> inspect
-
-Changed nodes
-risk_model
-policy
-
-Structural descendants
-policy
-rules
-final_action
-```
-
-Structural descendants are graph reachability only. They are **not causal impact** and do not imply that every downstream node or historical action actually changed.
-
-## DecisionFlow
+This supports branching, merging, multiple models or policy stages, and categorical actions such as `monitor`, `inspect`, `service` or `approve`, `manual_review`, `decline` without turning DeciShift into a generic workflow engine.
 
 A node is one executable versioned unit with declared dependencies:
 
@@ -119,13 +154,13 @@ flow = DecisionFlow(
 )
 ```
 
-Components may expose `run(records, inputs)` or be compatible local callables. Exceptions raised inside user components are not silently reinterpreted as calling-convention errors.
+Components may expose `run(records, inputs)` or be compatible local callables. Every node output must remain aligned to the same historical records. NumPy vectors/matrices and pandas Series/DataFrames are supported; pandas index reordering is rejected.
 
-Every node output must remain aligned to the same historical records. NumPy vectors/matrices and pandas Series/DataFrames are supported; pandas index reordering is rejected. DAG validation checks duplicate/missing nodes, self-dependencies, cycles, final-node validity and deterministic topological ordering using standard Python data structures—no NetworkX dependency.
+DAG validation checks duplicate or missing nodes, self-dependencies, cycles, final-node validity and deterministic topological ordering using standard Python data structures—no NetworkX dependency.
 
 ## Multi-action comparison
 
-For categorical actions DeciShift records explicit transitions instead of subtracting labels:
+Categorical actions are compared as explicit transitions rather than numerically encoded labels:
 
 ```text
 record_id  baseline_action  candidate_action  changed  transition
@@ -134,13 +169,13 @@ record_id  baseline_action  candidate_action  changed  transition
 103        inspect          service           true     inspect->service
 ```
 
-A final action must be one non-null, hashable, JSON-serializable scalar per record. Numeric ordering is not required or inferred.
-
 Reports include action distributions, transition counts/rates, a transition matrix and the most frequent changed transitions.
+
+A final action must be one non-null, hashable, JSON-serializable scalar per record. Numeric ordering is not required or inferred.
 
 **Categorical actions are never numerically subtracted or silently ordinal-encoded.**
 
-## Flow attribution
+## Software-counterfactual attribution
 
 Categorical actions require an explicitly numeric attribution game. Built-in targets are:
 
@@ -153,15 +188,15 @@ For candidate-action support:
 v(S) = 1 if hybrid_action(S) == candidate_action else 0
 ```
 
-Exact attribution evaluates `2^K` changed nodes/groups up to a safety limit. Approximate attribution samples permutations with streaming uncertainty and optional adaptive stopping. Nodes may belong to explicit attribution groups; DeciShift never invents groups automatically.
+Exact attribution evaluates `2^K` changed nodes or groups up to a safety limit. Approximate attribution samples permutations with streaming uncertainty and optional adaptive stopping. Nodes may belong to explicit attribution groups; DeciShift never invents groups automatically.
 
 Pairwise flow interactions use the numeric target and can also identify `interaction_only_transition` when neither node alone changes the baseline action but their pair does.
 
 All attribution is **software counterfactual attribution**. It does not establish real-world causal effects.
 
-## Efficiency and sampling convergence
+## Efficiency and sampling diagnostics
 
-v0.3.0 separates three ideas that should not be conflated:
+DeciShift keeps three concepts separate:
 
 - `efficiency_valid` — contributions add back to the observed software-output change;
 - `sampling_precision_sufficient` — confidence intervals satisfy the configured width target;
@@ -186,36 +221,34 @@ and reports permutations used, early stopping, max/median CI width and batch-sta
 
 Node/group hybrid attribution requires compatible topology: the same node names, dependency edges and final node.
 
-If a node is added/removed, an edge changes, or the final node changes, DeciShift may still execute the two complete flows and compare observed actions. It reports:
+If a node is added or removed, an edge changes, or the final node changes, DeciShift may still execute the two complete flows and compare observed actions, but it will not fabricate an invalid hybrid attribution graph:
 
 ```text
 topology_compatible: false
 attribution_status: unsupported topology change
 ```
 
-It does not fabricate invalid hybrid graphs.
-
 ## Graph-aware caching
 
-A node cache key contains node execution identity plus dependency lineage. A changed node invalidates its descendants while unaffected upstream/parallel branches can be reused. Flow evidence reports node evaluations, reused outputs, cache hits and cache misses.
+A node cache key contains node execution identity plus dependency lineage. A changed node invalidates its descendants while unaffected upstream or parallel branches can be reused.
 
-Runtime memory identity may be used only as an ephemeral in-process discriminator for unstable objects; it is never serialized as reproducible provenance.
+Flow evidence reports node evaluations, reused outputs, cache hits and cache misses. Runtime memory identity may be used only as an ephemeral in-process discriminator for unstable objects; it is never serialized as reproducible provenance.
 
-## Evidence and verification
+## Evidence integrity and verification
 
 Saved DecisionFlow runs use explicit evidence schema `2.0`, while existing v0.1/v0.2 evidence remains readable.
 
-Flow evidence persists topology/digests, node identities, changed nodes, groups, final node, actions/transitions, structural impact, attribution target/method and sampling diagnostics. SHA-256 evidence verification remains the same command:
+Flow evidence persists topology/digests, node identities, changed nodes, groups, final node, actions/transitions, structural impact, attribution target/method and sampling diagnostics.
 
 ```bash
 decishift verify RUN_ID
 ```
 
-Verification is tamper-evident integrity checking, not evidence authenticity or signer authentication. A passing verification shows internal SHA-256 consistency of the saved bundle; it does not prove who created it or that the original inputs were trusted.
+Verification is a **tamper-evident SHA-256 integrity check**. It verifies internal consistency of the saved evidence bundle. It does **not** establish authenticity, signer identity, or trust in the original input data.
 
 ## Decision Contracts
 
-Existing binary contract fields remain supported. Flows add action/transition limits:
+Decision Contracts turn observed change evidence into deterministic release gates.
 
 ```yaml
 contract:
@@ -236,13 +269,13 @@ Gate saved evidence:
 decishift gate RUN_ID --contract examples/triage/decision-contract.yaml
 ```
 
-Exit codes remain deterministic: pass `0`, usage/config `2`, contract violation `10`, insufficient evidence `11`, integrity failure `12`.
+Exit codes are deterministic: pass `0`, usage/config `2`, contract violation `10`, insufficient evidence `11`, integrity failure `12`.
 
-A PASS means only that the user-declared contract passed. It is not proof of safety, fairness, compliance or correctness.
+A `PASS` means only that the user-declared contract passed. It is not proof of safety, fairness, compliance or correctness.
 
 ## Cohorts, outcomes and fragility
 
-Flow cohorts report size, coverage, action-shift rate, global/excess shift rate and the most common transition; requested transition-specific rates are optional.
+Flow cohorts report size, coverage, action-shift rate, global/excess shift rate and the most common transition. Requested transition-specific rates are optional.
 
 Classification metrics are calculated only when explicitly configured:
 
@@ -255,6 +288,102 @@ outcome:
 Operational actions are not automatically treated as predicted labels.
 
 An advanced final node may return a row-aligned `DecisionOutput(action=..., score=..., margin=...)`, or a per-record sequence of `DecisionOutput` objects. Fragility is computed only when a meaningful numeric margin is explicitly supplied. DeciShift never invents a margin for categorical actions.
+
+## Public examples
+
+The repository contains three complementary examples.
+
+### 1. Equipment maintenance — synthetic, fully bundled
+
+[`examples/triage/`](examples/triage/) is a general-purpose equipment-maintenance triage flow:
+
+```text
+sensor_features
+      │
+      ├── failure_risk_model ──┐
+      │                        ├── triage_policy -> safety_rules -> final_action
+      └── downtime_model ──────┘
+```
+
+Actions are `monitor`, `inspect`, and `service`. Baseline/candidate versions change a sensor transform, risk model, policy and safety rule. No fraud, payments, mule-detection or employer-specific data is used.
+
+### 2. Wine — public data, trained scikit-learn model
+
+[`examples/public_wine_sklearn/`](examples/public_wine_sklearn/) uses scikit-learn's bundled Wine classification dataset: 178 public samples, 13 numeric features and 3 classes.
+
+A genuinely trained logistic-regression score drives three actions:
+
+```text
+route_not_class2 | manual_review | route_class2
+```
+
+The example separately evaluates:
+
+```text
+feature-only
+model-only
+policy-only
+rule-only
+all changes combined
+```
+
+### 3. Digits — public data, trained XGBoost model
+
+[`examples/public_digits_xgboost/`](examples/public_digits_xgboost/) uses scikit-learn's bundled Digits dataset: 1,797 public 8×8 digit images with 64 pixel features.
+
+A genuinely trained XGBoost score for `digit 8` versus other digits drives:
+
+```text
+auto_not_8 | manual_review | auto_8
+```
+
+It evaluates the same feature/model/policy/rule isolation matrix and produces the decision-change case study summarized at the top of this README.
+
+Both public datasets are bundled with scikit-learn, so no network dataset download is required at runtime.
+
+## Reproducible benchmarks
+
+Existing binary benchmark:
+
+```bash
+python benchmarks/benchmark_cpu.py
+```
+
+DecisionFlow benchmark:
+
+```bash
+python benchmarks/benchmark_flow_cpu.py
+```
+
+Reproducible exact-vs-sampled evaluation:
+
+```bash
+python benchmarks/evaluate_flow_attribution.py \
+  --json-out evaluation-artifacts/flow-benchmark.json \
+  --markdown-out evaluation-artifacts/flow-benchmark.md
+```
+
+The evaluation benchmark runs linear 5-node and branched 8-node cases at **10,000** and **100,000** rows by default, with an explicit optional **1,000,000-record** mode.
+
+For each case it records:
+
+- changed nodes and changed final actions;
+- comparison wall time;
+- attribution wall time;
+- `tracemalloc` peak Python allocation;
+- hybrid evaluations;
+- nodes executed and outputs reused;
+- cache-reuse ratio;
+- attribution efficiency and MAE;
+- permutation count;
+- sampling precision/convergence;
+- maximum confidence-interval width.
+
+Benchmark results are machine-generated and tied to the source commit. Timing and memory values are not hand-entered into this README.
+
+The first committed snapshot is [`benchmarks/results/76bbf63abb7fdbba26739f3c8f96f94e0110bfc8.md`](benchmarks/results/76bbf63abb7fdbba26739f3c8f96f94e0110bfc8.md). For those 3–4 changed-node cases, exact attribution was faster than the bounded sampled protocol. The sampled runs used all 64 permutations and did **not** meet the configured CI-width convergence target. That result is retained as measured rather than tuned away.
+
+The heavier benchmark publication workflow is explicit and read-only. It records the exact source commit it executes and does not write to `main` or overwrite versioned release assets.
 
 ## CLI
 
@@ -281,65 +410,6 @@ decishift compare-runs RUN_A RUN_B
 
 All core commands work locally/offline. HTML reports are self-contained and require no CDN, JavaScript or web server.
 
-## Synthetic triage example
-
-The source repository includes `examples/triage/`, a general-purpose equipment-maintenance triage flow:
-
-```text
-sensor_features
-      │
-      ├── failure_risk_model ──┐
-      │                        ├── triage_policy -> safety_rules -> final_action
-      └── downtime_model ──────┘
-```
-
-Actions are `monitor`, `inspect`, and `service`. Baseline/candidate versions change a sensor transform, risk model, policy and safety rule and generate categorical transitions on the bundled synthetic records. No fraud, payments, mule-detection or employer-specific data is used.
-
-## Public trained-flow evaluation
-
-The source repository now also includes two complete public-data flows with genuinely trained models:
-
-- [`examples/public_wine_sklearn/`](examples/public_wine_sklearn/) — scikit-learn Wine data with a trained logistic-regression score driving `route_not_class2`, `manual_review`, and `route_class2`.
-- [`examples/public_digits_xgboost/`](examples/public_digits_xgboost/) — scikit-learn Digits data with a trained XGBoost score driving `auto_not_8`, `manual_review`, and `auto_8`.
-
-Each example compares **feature-only**, **model-only**, **policy-only**, **rule-only**, and **combined** changes against the same baseline so the behavior of each versioned layer can be inspected independently.
-
-### Decision-change case study
-
-A machine-generated Digits/XGBoost case study shows the distinction between model monitoring and decision-change evidence. On its fixed public evaluation split, candidate model accuracy improves from **90.26% to 91.79%** and ROC AUC from **0.9429 to 0.9472**. Aggregate final-action counts stay close, but **30 of 719 individual actions change (4.17%)**.
-
-The changed transitions are 13 `auto_not_8→manual_review`, 8 `manual_review→auto_8`, and 9 `manual_review→auto_not_8`. Exact software-counterfactual attribution assigns 48.86% of absolute attribution mass to the model, 46.59% to policy, and 4.55% to rules. The overall 5% action-shift contract passes, but the candidate is **blocked** because the `actual_digit=6` cohort shifts at **9.41%**, above its declared **8%** limit.
-
-That is the intended use case: an aggregate model metric can improve and the overall action mix can look similar while individual decisions and one governed cohort still move materially.
-
-The figures above come from the committed machine-generated snapshot for source commit [`76bbf63abb7fdbba26739f3c8f96f94e0110bfc8`](docs/case-studies/digits-xgboost-76bbf63abb7fdbba26739f3c8f96f94e0110bfc8.md). They are descriptive evidence over this public split; software-counterfactual attribution does not establish real-world causality.
-
-## Benchmarks
-
-Existing binary benchmark:
-
-```bash
-python benchmarks/benchmark_cpu.py
-```
-
-DecisionFlow benchmark:
-
-```bash
-python benchmarks/benchmark_flow_cpu.py
-```
-
-Reproducible exact-vs-sampled evaluation:
-
-```bash
-python benchmarks/evaluate_flow_attribution.py \
-  --json-out evaluation-artifacts/flow-benchmark.json \
-  --markdown-out evaluation-artifacts/flow-benchmark.md
-```
-
-The evaluation benchmark runs linear 5-node and branched 8-node cases at 10,000 and 100,000 rows by default, with an explicit optional 1,000,000-record mode. It records wall-clock time, `tracemalloc` peak Python memory, changed-node/action counts, cache reuse, exact versus sampled attribution, efficiency and sampling-convergence diagnostics.
-
-No benchmark timing or memory number is fabricated or hand-entered into this README. Published measurements live in commit-tied machine-generated snapshots; the first is [`benchmarks/results/76bbf63abb7fdbba26739f3c8f96f94e0110bfc8.md`](benchmarks/results/76bbf63abb7fdbba26739f3c8f96f94e0110bfc8.md). In that run, bounded sampled attribution did not meet the requested CI-width convergence target for the 3–4 changed-node cases, while exact attribution was faster; the measured result is retained rather than tuned away.
-
 ## Tests and quality gate
 
 ```bash
@@ -351,27 +421,34 @@ python -m twine check dist/*
 decishift demo --rows 1000 --no-save
 ```
 
-CI runs the quality gate on Python 3.11, 3.12 and 3.13 and additionally exercises the flow graph/compare/verify/gate path. The public scikit-learn and XGBoost flows are also executed in CI, and a separate read-only evaluation workflow generates commit-scoped evidence artifacts.
+CI runs on Python **3.11, 3.12 and 3.13**, tests the declared minimum-supported dependency floor, and exercises the full `graph → compare → verify → gate` trust path. Dedicated optional-dependency jobs cover XGBoost and LightGBM, and the trained public scikit-learn/XGBoost examples are executed in CI.
 
-## Documentation
-
-- [Decision flows](https://github.com/sauravsingla/DeciShift/blob/main/docs/decision-flows.md)
-- [Multi-action decisions](https://github.com/sauravsingla/DeciShift/blob/main/docs/multi-action.md)
-- [Flow attribution](https://github.com/sauravsingla/DeciShift/blob/main/docs/flow-attribution.md)
-- [Structural impact](https://github.com/sauravsingla/DeciShift/blob/main/docs/structural-impact.md)
-- [Adaptive attribution](https://github.com/sauravsingla/DeciShift/blob/main/docs/adaptive-attribution.md)
-- [Decision Contracts](https://github.com/sauravsingla/DeciShift/blob/main/docs/decision-contracts.md)
-- [Evidence integrity](https://github.com/sauravsingla/DeciShift/blob/main/docs/evidence-integrity.md)
-- [Evaluation study](https://github.com/sauravsingla/DeciShift/blob/main/docs/evaluation-study.md)
-- [Limitations](https://github.com/sauravsingla/DeciShift/blob/main/docs/limitations.md)
-
-## Research positioning
+## Research positioning and limits
 
 DeciShift is related to model regression testing, behavioral diffing, slice analysis, ML monitoring, Shapley attribution, unit-change attribution and CI release gates. It does **not** claim that Shapley attribution is novel.
 
 Its specific object of analysis is the **decision/action transition produced by a versioned structured executable decision system**.
 
-Results depend on supplied historical records. Structural reachability is not causal impact. Software counterfactual attribution does not establish real-world causality. Sampling intervals quantify permutation-sampling uncertainty only.
+Important limits:
+
+- results depend on the supplied historical records;
+- structural reachability is not causal impact;
+- software-counterfactual attribution does not establish real-world causality;
+- sampling intervals quantify permutation-sampling uncertainty only;
+- integrity verification does not establish evidence authenticity or signer identity;
+- public benchmark datasets are evaluation evidence, not proof of production deployment fitness.
+
+## Documentation
+
+- [Decision flows](docs/decision-flows.md)
+- [Multi-action decisions](docs/multi-action.md)
+- [Flow attribution](docs/flow-attribution.md)
+- [Structural impact](docs/structural-impact.md)
+- [Adaptive attribution](docs/adaptive-attribution.md)
+- [Decision Contracts](docs/decision-contracts.md)
+- [Evidence integrity](docs/evidence-integrity.md)
+- [Evaluation study](docs/evaluation-study.md)
+- [Limitations](docs/limitations.md)
 
 ## Release, license and citation
 
@@ -379,9 +456,9 @@ Current release: **v0.3.0 — Composable Decision Flows**.
 
 - GitHub release: https://github.com/sauravsingla/DeciShift/releases/tag/v0.3.0
 - PyPI: https://pypi.org/project/decishift/0.3.0/
-- License: [Apache-2.0](https://github.com/sauravsingla/DeciShift/blob/main/LICENSE)
+- License: [Apache-2.0](LICENSE)
 - Zenodo v0.3.0: https://zenodo.org/records/22942359
 - DOI: https://doi.org/10.5281/zenodo.22942359
-- Citation metadata: [`CITATION.cff`](https://github.com/sauravsingla/DeciShift/blob/main/CITATION.cff)
+- Citation metadata: [`CITATION.cff`](CITATION.cff)
 
 For DeciShift v0.3.0, cite the version-specific DOI **10.5281/zenodo.22942359**.

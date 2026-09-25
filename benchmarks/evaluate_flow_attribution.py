@@ -18,6 +18,13 @@ from decishift.flow import compare_flows
 from decishift.flow.attribution import approximate_flow_attribution, exact_flow_attribution
 from decishift.flow.hybrid import FlowHybridCache
 
+SAMPLED_MIN_PERMUTATIONS = 16
+SAMPLED_MAX_PERMUTATIONS = 64
+SAMPLED_BATCH_SIZE = 8
+SAMPLED_TARGET_CI_WIDTH = 0.10
+SAMPLED_CONFIDENCE_LEVEL = 0.95
+SAMPLED_SEED = 0
+
 
 def _measure(fn):
     tracemalloc.start()
@@ -98,12 +105,12 @@ def benchmark_case(name: str, baseline, candidate, records: pd.DataFrame) -> lis
             candidate,
             records,
             result=result,
-            min_permutations=32,
-            max_permutations=256,
-            batch_size=16,
-            target_ci_width=0.05,
-            confidence_level=0.95,
-            seed=0,
+            min_permutations=SAMPLED_MIN_PERMUTATIONS,
+            max_permutations=SAMPLED_MAX_PERMUTATIONS,
+            batch_size=SAMPLED_BATCH_SIZE,
+            target_ci_width=SAMPLED_TARGET_CI_WIDTH,
+            confidence_level=SAMPLED_CONFIDENCE_LEVEL,
+            seed=SAMPLED_SEED,
             cache=sampled_cache,
         )
     )
@@ -148,12 +155,12 @@ def run(sizes: list[int]) -> dict:
         },
         "benchmark": {
             "attribution_target": "candidate_action_support",
-            "sampled_min_permutations": 32,
-            "sampled_max_permutations": 256,
-            "sampled_batch_size": 16,
-            "sampled_target_ci_width": 0.05,
-            "sampled_confidence_level": 0.95,
-            "sampled_seed": 0,
+            "sampled_min_permutations": SAMPLED_MIN_PERMUTATIONS,
+            "sampled_max_permutations": SAMPLED_MAX_PERMUTATIONS,
+            "sampled_batch_size": SAMPLED_BATCH_SIZE,
+            "sampled_target_ci_width": SAMPLED_TARGET_CI_WIDTH,
+            "sampled_confidence_level": SAMPLED_CONFIDENCE_LEVEL,
+            "sampled_seed": SAMPLED_SEED,
             "memory_metric": "tracemalloc peak Python allocations; not process RSS",
         },
         "rows": rows,
@@ -209,6 +216,7 @@ def markdown(payload: dict) -> str:
         "",
         "Memory is `tracemalloc` peak Python allocation, not total process RSS.",
         "Exact attribution has no permutation-sampling interval, so its sampling fields are not a Monte Carlo convergence claim.",
+        "Sampled attribution is deliberately bounded for repeatable CI; the table reports whether the requested precision actually converged.",
         "",
     ]
     return "\n".join(lines)

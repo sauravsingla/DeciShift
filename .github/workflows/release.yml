@@ -14,8 +14,42 @@ permissions:
   contents: read
 
 jobs:
+  validate-release:
+    name: release validation / Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install release candidate
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+      - name: Run test and lint gates
+        run: |
+          ruff check .
+          pytest --cov=decishift --cov-report=term-missing
+      - name: Full graph compare verify gate smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          decishift graph examples/triage/flow.yaml
+          FLOW_OUTPUT=$(decishift compare examples/triage/flow.yaml)
+          printf '%s\n' "$FLOW_OUTPUT"
+          RUN_ID=$(printf '%s\n' "$FLOW_OUTPUT" | sed -n 's/^Run ID: //p' | tail -n 1)
+          test -n "$RUN_ID"
+          decishift verify "$RUN_ID"
+          decishift gate "$RUN_ID" --contract examples/triage/decision-contract.yaml
+
   build:
     name: build distributions
+    needs: validate-release
     runs-on: ubuntu-latest
     env:
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}

@@ -4,6 +4,7 @@
 [![PyPI version](https://img.shields.io/badge/PyPI-v0.3.0-blue.svg)](https://pypi.org/project/decishift/0.3.0/)
 [![Python versions](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://pypi.org/project/decishift/0.3.0/)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](https://github.com/sauravsingla/DeciShift/blob/main/LICENSE)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22942359.svg)](https://doi.org/10.5281/zenodo.22942359)
 
 **Explain why decisions changed between versions of an ML decision system.**
 
@@ -341,6 +342,8 @@ Current release: **v0.3.0 — Composable Decision Flows**.
 - GitHub release: https://github.com/sauravsingla/DeciShift/releases/tag/v0.3.0
 - PyPI: https://pypi.org/project/decishift/0.3.0/
 - License: [Apache-2.0](https://github.com/sauravsingla/DeciShift/blob/main/LICENSE)
+- Zenodo v0.3.0: https://zenodo.org/records/22942359
+- DOI: https://doi.org/10.5281/zenodo.22942359
 - Citation metadata: [`CITATION.cff`](https://github.com/sauravsingla/DeciShift/blob/main/CITATION.cff)
 
-The Zenodo v0.3.0 archive is still being indexed. The README intentionally does **not** present the older v0.2 DOI as the current v0.3 DOI; the v0.3 DOI will be added after the new archive is publicly visible.
+For DeciShift v0.3.0, cite the version-specific DOI **10.5281/zenodo.22942359**.

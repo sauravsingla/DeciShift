@@ -130,7 +130,7 @@ def test_intermediate_decision_output_alignment_is_validated():
         DecisionNode("bad", BadIntermediate(), version="bad_v1"),
         DecisionNode("final", Consume(), ("bad",), version="consume_v1"),
     ], "final")
-    with pytest.raises(ValueError, match="exactly one value per record"):
+    with pytest.raises(ValueError, match="pandas index does not match input record order"):
         FlowExecutor(records).evaluate(flow)
 
 

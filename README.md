@@ -14,11 +14,11 @@ Git explains **which code changed**. Model monitoring explains **whether metrics
 
 DeciShift is CPU-first, local-first, offline-capable and framework-agnostic. It requires no GPU, cloud service, database, Docker runtime, LLM/API, telemetry, model registry or hosted dashboard.
 
-## 60-second real run — inline playback
+## 60-second real run
 
-This demo is generated from a **fresh GitHub Actions execution** of the bundled synthetic triage DecisionFlow. The workflow runs `graph → compare → verify → gate`, then renders the actual results as a 60-second animation.
+The workflow runs `graph → compare → verify → gate`, then renders the actual results as a 60-second animation.
 
-![DeciShift 60-second real DecisionFlow run — inline playback](https://github.com/sauravsingla/DeciShift/releases/download/v0.3.0/decishift-real-run-inline.gif)
+![DeciShift 60-second real DecisionFlow run](https://github.com/sauravsingla/DeciShift/releases/download/v0.3.0/decishift-real-run-inline.gif)
 
 The recorded run compares 18 historical records: 11 actions change, giving a 61.11% action-shift rate. The largest software-counterfactual attribution is `failure_risk_model` at 34.51%, followed by `triage_policy` at 28.87%, `safety_rules` at 23.24%, and `sensor_features` at 13.38%. Evidence verification passes and the configured Decision Contract returns `PASS`. A contract pass means only that the observed changes remain inside the user-declared governance limits; it is not proof that the candidate is automatically safer, better, fairer, compliant or correct.
 

@@ -46,18 +46,25 @@ jobs:
           decishift verify "$RUN_ID" | tee video-run/verify.txt
           decishift gate "$RUN_ID" --contract examples/triage/decision-contract.yaml | tee video-run/gate.txt
 
-      - name: Build 60-second narrated video
+      - name: Build 60-second visual demo
         run: |
           python .github/scripts/build_readme_video.py \
             --input-dir video-run \
-            --output decishift-real-run-with-voice.mp4 \
+            --output video-run/narrated-temp.mp4 \
             --poster decishift-real-run-poster.png
 
-      - name: Upload video and poster to v0.3.0 release
+          cp video-run/silent.mp4 decishift-real-run-silent.mp4
+
+          ffmpeg -y -i video-run/silent.mp4 \
+            -vf "fps=4,scale=720:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=64:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle" \
+            -loop 0 decishift-real-run-inline.gif
+
+      - name: Upload silent demo assets to v0.3.0 release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload v0.3.0 \
-            decishift-real-run-with-voice.mp4 \
+            decishift-real-run-silent.mp4 \
+            decishift-real-run-inline.gif \
             decishift-real-run-poster.png \
             --clobber

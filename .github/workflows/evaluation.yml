@@ -5,8 +5,10 @@ on:
     paths:
       - "examples/public_wine_sklearn/**"
       - "examples/public_digits_xgboost/**"
-      - "benchmarks/**"
-      - "docs/evaluation-study.md"
+      - "benchmarks/benchmark_flow_cpu.py"
+      - "benchmarks/evaluate_flow_attribution.py"
+      - "decishift/flow/**"
+      - "decishift/adapters/**"
       - ".github/workflows/evaluation.yml"
   workflow_dispatch:
     inputs:
@@ -19,9 +21,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: evaluation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   public-examples-and-benchmarks:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       DECISHIFT_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:

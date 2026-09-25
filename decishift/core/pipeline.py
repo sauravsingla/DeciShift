@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import inspect
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -10,6 +11,7 @@ import pandas as pd
 
 from decishift.core.exceptions import ComponentExecutionError, ReproducibilityError
 from decishift.core.identity import ComponentIdentity, component_identity, reproducibility_status
+from decishift.evidence import fingerprint_dataframe
 
 COMPONENTS = ("features", "model", "calibrator", "threshold", "rules")
 
@@ -215,8 +217,17 @@ class DecisionPipeline:
         return f"runtime-only:{component}:{id(value)}"
 
     def evaluate(self, records: pd.DataFrame, *, cache: dict[tuple[str, ...], Any] | None = None) -> PipelineTrace:
+        """Execute the pipeline against an isolated snapshot of ``records``.
+
+        Shared intermediate caches are content-bound to the input fingerprint and
+        store defensive copies. A user component can therefore mutate the object
+        it receives without changing the caller's frame or poisoning later hybrid
+        replays that reuse the cache.
+        """
         self.validate_reproducibility()
-        n = len(records)
+        execution_records = records.copy(deep=True)
+        records_fingerprint = fingerprint_dataframe(execution_records)
+        n = len(execution_records)
         local_cache = cache if cache is not None else {}
         fv = self._cache_token("features")
         mv = self._cache_token("model")
@@ -225,16 +236,37 @@ class DecisionPipeline:
         rv = self._cache_token("rules")
 
         def cached(key: tuple[str, ...], compute):
-            if key not in local_cache:
-                local_cache[key] = compute()
-            return local_cache[key]
+            bound_key = ("pipeline", records_fingerprint, *key)
+            if bound_key not in local_cache:
+                local_cache[bound_key] = copy.deepcopy(compute())
+            return copy.deepcopy(local_cache[bound_key])
 
-        transformed = cached(("features", fv), lambda: _transform_features(self.features, records))
-        raw_scores = cached(("model", fv, mv), lambda: _predict_scores(self.model, transformed, n))
-        calibrated = cached(("calibrator", fv, mv, cv), lambda: _calibrate(self.calibrator, raw_scores, n))
-        thresholds = cached(("threshold", fv, mv, cv, tv), lambda: _threshold_values(self.threshold, records, calibrated))
+        transformed = cached(
+            ("features", fv),
+            lambda: _transform_features(self.features, execution_records.copy(deep=True)),
+        )
+        raw_scores = cached(
+            ("model", fv, mv),
+            lambda: _predict_scores(self.model, copy.deepcopy(transformed), n),
+        )
+        calibrated = cached(
+            ("calibrator", fv, mv, cv),
+            lambda: _calibrate(self.calibrator, raw_scores.copy(), n),
+        )
+        thresholds = cached(
+            ("threshold", fv, mv, cv, tv),
+            lambda: _threshold_values(self.threshold, execution_records.copy(deep=True), calibrated.copy()),
+        )
         pre_rule = cached(("pre_rule", fv, mv, cv, tv), lambda: (calibrated >= thresholds).astype(int))
-        final = cached(("rules", fv, mv, cv, tv, rv), lambda: _apply_rules(self.rules, records, calibrated, pre_rule))
+        final = cached(
+            ("rules", fv, mv, cv, tv, rv),
+            lambda: _apply_rules(
+                self.rules,
+                execution_records.copy(deep=True),
+                calibrated.copy(),
+                pre_rule.copy(),
+            ),
+        )
         return PipelineTrace(raw_scores, calibrated, thresholds, pre_rule, final)
 
     def version_of(self, component: str) -> str:

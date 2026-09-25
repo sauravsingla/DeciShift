@@ -7,9 +7,8 @@ from typing import Any, Callable
 
 import pandas as pd
 
-from decishift.evidence import fingerprint_dataframe
-
 from decishift.core.exceptions import ComponentExecutionError
+from decishift.evidence import fingerprint_dataframe
 from decishift.flow.flow import DecisionFlow
 from decishift.flow.trace import FlowTrace, normalize_final_output, validate_row_aligned_output
 
@@ -64,9 +63,14 @@ class FlowExecutor:
 
     def evaluate(self, flow: DecisionFlow) -> FlowTrace:
         flow.validate_reproducibility()
+        # Snapshot caller-owned records once, then give every user node its own
+        # copy. A node can mutate its local frame without affecting siblings,
+        # descendants that read records directly, a later candidate evaluation,
+        # or the caller's original DataFrame.
+        execution_records = self.records.copy(deep=True)
         outputs: dict[str, Any] = {}
         keys: dict[str, tuple] = {}
-        records_fingerprint = fingerprint_dataframe(self.records)
+        records_fingerprint = fingerprint_dataframe(execution_records)
         hits = 0
         misses = 0
 
@@ -81,19 +85,28 @@ class FlowExecutor:
                 output = copy.deepcopy(self.node_cache[key])
                 hits += 1
             else:
-                output = _invoke_node(node.component, name, self.records, inputs)
-                output = validate_row_aligned_output(name, output, self.records)
+                output = _invoke_node(
+                    node.component,
+                    name,
+                    execution_records.copy(deep=True),
+                    inputs,
+                )
+                output = validate_row_aligned_output(name, output, execution_records)
                 self.node_cache[key] = copy.deepcopy(output)
                 misses += 1
             outputs[name] = output
             keys[name] = key
 
-        actions, scores, margins = normalize_final_output(outputs[flow.final_node], self.records, flow.final_node)
+        actions, scores, margins = normalize_final_output(
+            outputs[flow.final_node],
+            execution_records,
+            flow.final_node,
+        )
         return FlowTrace(
             outputs=outputs,
             actions=actions,
             final_node=flow.final_node,
-            record_index=self.records.index.copy(),
+            record_index=execution_records.index.copy(),
             scores=scores,
             margins=margins,
             node_keys=keys,

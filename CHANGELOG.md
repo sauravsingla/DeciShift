@@ -2,6 +2,34 @@
 
 All notable changes to DeciShift are documented here.
 
+## 0.3.1 - Unreleased
+
+Theme: **Trust and evaluation hardening**.
+
+### Added
+
+- Public-data DecisionFlow evaluations using a trained scikit-learn Wine model and a trained XGBoost Digits model, each exercising feature, model, policy, rule, and combined changes independently.
+- A reproducible decision-change case study where model quality improves while individual actions still change, with transition, attribution, and cohort-contract evidence.
+- Commit-tied machine-generated flow benchmark snapshots for 10,000 and 100,000 records, with optional 1,000,000-record runs, exact-versus-sampled attribution, cache reuse, wall time, Python memory, and convergence diagnostics.
+- Regression coverage for input isolation, content-bound pipeline caching, cache-mutation resistance, hybrid replay invalidation, evidence-verification failure modes, and configuration validation.
+
+### Changed
+
+- Bind legacy `DecisionPipeline` shared-cache entries to the input DataFrame content fingerprint so a cache cannot silently reuse intermediate values across different record sets.
+- Defensively copy legacy cached intermediate values before storage and before reuse so mutating user components cannot poison later hybrid replays.
+- Execute `DecisionPipeline` and `DecisionFlow` user components against isolated record snapshots so in-place mutation cannot modify the caller-owned DataFrame or leak between independent nodes/evaluations.
+- Bind `HybridReplayCache` traces to the current record-content fingerprint so external record mutation invalidates stale whole-trace cache entries.
+- Raise the enforced branch-aware test coverage floor from 75% to 80% with targeted trust-path tests rather than fabricated coverage exclusions.
+- Refresh GitHub Actions dependencies and pin every repository workflow/example action to an immutable commit SHA, with release-version comments retained for auditability.
+- Disable persisted checkout credentials in read-only workflows and make the example Decision Contract workflow explicitly read-only.
+- Expand security, CI, and reproducibility documentation around trusted configuration, cache/input immutability, evidence integrity versus authenticity, and supply-chain pinning.
+
+### Release integrity
+
+- Keep release validation on Python 3.11, 3.12, and 3.13 before build/publish.
+- Keep PyPI Trusted Publishing with least-privilege `id-token: write` only in the publishing job.
+- Existing tagged release assets remain untouched; this unreleased section describes changes currently on `main` only after merge.
+
 ## 0.3.0 - 2026-09-24
 
 Theme: **Composable Decision Flows**.

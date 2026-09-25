@@ -32,7 +32,7 @@ def test_graph_compare_verify_gate_cli_round_trip(tmp_path: Path, monkeypatch) -
     assert "%% baseline" in mermaid.output
     assert "%% candidate" in mermaid.output
 
-    compare = runner.invoke(app, ["compare", str(FLOW_CONFIG), "--attribution", "none"])
+    compare = runner.invoke(app, ["compare", str(FLOW_CONFIG)])
     assert compare.exit_code == 0, compare.output
     run_id = _run_id(compare.output)
 

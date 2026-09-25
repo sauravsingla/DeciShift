@@ -16,7 +16,7 @@ DeciShift is CPU-first, local-first, offline-capable and framework-agnostic. It 
 
 ## 60-second real run
 
-The workflow runs `graph → compare → verify → gate`, then renders the actual results as a 60-second animation.
+The workflow runs `graph → compare → verify → gate`.
 
 ![DeciShift 60-second real DecisionFlow run](https://github.com/sauravsingla/DeciShift/releases/download/v0.3.0/decishift-real-run-inline.gif)
 

@@ -7,6 +7,8 @@
 
 **Explain why final decisions changed between versions of an ML decision system.**
 
+DeciShift is an **open-source ML behavioral regression testing and decision-change analysis framework** for comparing machine-learning system versions before deployment. It supports decision-level model evaluation, model change impact analysis and MLOps release gating by showing which operational actions changed between a baseline and candidate system, and which versioned components contributed to those changes.
+
 A candidate model can improve an aggregate metric while individual operational decisions still change. DeciShift compares two executable versions of a decision system and answers four questions:
 
 1. **Which records changed action?**
@@ -17,6 +19,32 @@ A candidate model can improve an aggregate metric while individual operational d
 Git explains **which code changed**. Monitoring explains **whether aggregate metrics changed**. DeciShift focuses on **which final decisions changed and how those changes map back to versioned parts of the executable decision system**.
 
 DeciShift is CPU-first, local-first, offline-capable and framework-agnostic. It requires no GPU, cloud service, database, Docker runtime, LLM/API, telemetry, model registry or hosted dashboard.
+
+## DeciShift and adjacent MLOps tools
+
+DeciShift is designed to **complement, not replace**, experiment tracking, model registries, evaluation, monitoring, orchestration and CI/CD systems.
+
+| Tool or layer | Primary role | Where DeciShift adds focus |
+|---|---|---|
+| [MLflow](https://mlflow.org/) | Tracks experiments, runs, parameters, metrics, artifacts and model lifecycle/version metadata. | Compares the downstream actions produced by two executable decision-system versions and can apply Decision Contracts before release. |
+| [Evidently](https://www.evidentlyai.com/) and similar evaluation/monitoring tools | Evaluate, test and monitor data, model and AI-system quality. | Analyzes record-level decision/action transitions and attributes software-output changes across versioned features, models, policies and rules. |
+| CI/CD and ML orchestration tools | Execute training, validation, deployment and release workflows. | Produces a deterministic decision-level gate result that a release workflow can consume as a pass/block signal. |
+
+A typical integration pattern is:
+
+```text
+track/evaluate baseline and candidate
+        ↓
+execute both through the decision system
+        ↓
+DeciShift behavioral comparison + attribution
+        ↓
+Decision Contract
+        ↓
+release PASS / BLOCK signal
+```
+
+The distinction is intentionally narrow: DeciShift does not try to become a general experiment tracker, model registry, monitoring platform or workflow orchestrator. Its object of analysis is the **change in final operational decisions between executable system versions**.
 
 ## Public-data result: the gap DeciShift is built to expose
 

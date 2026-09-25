@@ -1,10 +1,9 @@
 # DeciShift
 
 [![CI](https://github.com/sauravsingla/DeciShift/actions/workflows/tests.yml/badge.svg)](https://github.com/sauravsingla/DeciShift/actions/workflows/tests.yml)
-[![PyPI version](https://img.shields.io/badge/PyPI-v0.3.0-blue.svg)](https://pypi.org/project/decishift/0.3.0/)
-[![Python versions](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://pypi.org/project/decishift/0.3.0/)
+[![PyPI version](https://img.shields.io/badge/PyPI-v0.3.1-blue.svg)](https://pypi.org/project/decishift/0.3.1/)
+[![Python versions](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://pypi.org/project/decishift/0.3.1/)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22942359.svg)](https://doi.org/10.5281/zenodo.22942359)
 
 **Explain why final decisions changed between versions of an ML decision system.**
 
@@ -61,10 +60,10 @@ These figures come from the committed machine-generated snapshot for source comm
 
 ## Quick start
 
-Current release: **v0.3.0 — Composable Decision Flows**.
+Current release: **v0.3.1 — Trust and evaluation hardening**.
 
 ```bash
-python -m pip install --upgrade decishift==0.3.0
+python -m pip install --upgrade decishift==0.3.1
 ```
 
 Run the bundled demo:
@@ -452,13 +451,11 @@ Important limits:
 
 ## Release, license and citation
 
-Current release: **v0.3.0 — Composable Decision Flows**.
+Current release: **v0.3.1 — Trust and evaluation hardening**.
 
-- GitHub release: https://github.com/sauravsingla/DeciShift/releases/tag/v0.3.0
-- PyPI: https://pypi.org/project/decishift/0.3.0/
+- GitHub release: https://github.com/sauravsingla/DeciShift/releases/tag/v0.3.1
+- PyPI: https://pypi.org/project/decishift/0.3.1/
 - License: [Apache-2.0](LICENSE)
-- Zenodo v0.3.0: https://zenodo.org/records/22942359
-- DOI: https://doi.org/10.5281/zenodo.22942359
 - Citation metadata: [`CITATION.cff`](CITATION.cff)
 
-For DeciShift v0.3.0, cite the version-specific DOI **10.5281/zenodo.22942359**.
+The v0.3.1 Zenodo DOI is intentionally not predeclared. If a new Zenodo archive is minted for this release, the repository citation metadata should be updated to the DOI actually assigned to that archived version.

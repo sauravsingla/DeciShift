@@ -1,0 +1,14 @@
+title: DeciShift
+description: Open-source ML behavioral regression testing and decision-change analysis for comparing machine-learning system versions before deployment.
+url: https://sauravsingla.github.io
+baseurl: /DeciShift
+repository: sauravsingla/DeciShift
+theme: jekyll-theme-cayman
+show_downloads: false
+lang: en-US
+plugins:
+  - jekyll-seo-tag
+  - jekyll-sitemap
+
+github:
+  repository_url: https://github.com/sauravsingla/DeciShift

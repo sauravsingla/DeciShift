@@ -25,6 +25,16 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e '.[dev]'
       - run: ruff check .
+      - name: Enforce import ordering on new quality surfaces
+        if: matrix.python-version == '3.11'
+        run: >-
+          ruff check --select I
+          scripts/check_trust_coverage.py
+          scripts/generate_api_reference.py
+          scripts/generate_sbom.py
+          scripts/platform_smoke.py
+          tests/test_evidence_golden.py
+          tests/test_properties.py
       - name: Type-check trust-critical public surfaces
         if: matrix.python-version == '3.11'
         run: python -m mypy decishift/evidence.py decishift/flow/actions.py decishift/flow/node.py

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 
 from decishift.evidence import canonical_json_bytes
 from decishift.flow.actions import action_display_key, action_equal_mask, action_identity

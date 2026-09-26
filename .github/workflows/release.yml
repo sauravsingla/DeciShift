@@ -32,26 +32,24 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e '.[dev]'
-      - name: Run test and lint gates
+      - name: Run test, lint, type, API, and trust-coverage gates
         run: |
           ruff check .
-          pytest --cov=decishift --cov-report=term-missing
+          python -m mypy decishift/evidence.py decishift/flow/actions.py decishift/flow/node.py
+          python scripts/generate_api_reference.py --check
+          pytest --cov=decishift --cov-report=term-missing --cov-report=json:coverage.json
+          python scripts/check_trust_coverage.py coverage.json
       - name: Full graph compare verify gate smoke test
-        shell: bash
-        run: |
-          set -euo pipefail
-          decishift graph examples/triage/flow.yaml
-          FLOW_OUTPUT=$(decishift compare examples/triage/flow.yaml)
-          printf '%s\n' "$FLOW_OUTPUT"
-          RUN_ID=$(printf '%s\n' "$FLOW_OUTPUT" | sed -n 's/^Run ID: //p' | tail -n 1)
-          test -n "$RUN_ID"
-          decishift verify "$RUN_ID"
-          decishift gate "$RUN_ID" --contract examples/triage/decision-contract.yaml
+        run: python scripts/platform_smoke.py
 
   build:
-    name: build distributions
+    name: build distributions and provenance
     needs: validate-release
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     env:
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
     steps:
@@ -100,18 +98,52 @@ jobs:
 
           print(f"Verified release {release_tag}: package/runtime version {package_version}.")
           PY
-      - name: Build package
+      - name: Build package and release metadata
         run: |
           python -m pip install --upgrade pip
           python -m pip install build twine
           python -m build
           python -m twine check dist/*
+          python scripts/generate_sbom.py
+          sha256sum dist/* > release-metadata/SHA256SUMS.txt
+      - name: Attest Python distributions
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-path: "dist/*"
+      - name: Attest release metadata
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-path: "release-metadata/*"
       - name: Upload distributions
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: python-package-distributions
           path: dist/
           if-no-files-found: error
+      - name: Upload release metadata
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-metadata
+          path: release-metadata/
+          if-no-files-found: error
+
+  attach-release-metadata:
+    name: attach SBOM and checksums to GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Download release metadata
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-metadata
+          path: release-metadata/
+      - name: Attach metadata to the existing release
+        run: gh release upload "$RELEASE_TAG" release-metadata/* --clobber
 
   publish-pypi:
     name: publish to PyPI

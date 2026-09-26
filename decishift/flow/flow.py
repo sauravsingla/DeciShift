@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from decishift.core.exceptions import ReproducibilityError
 from decishift.core.identity import reproducibility_status
@@ -25,6 +25,8 @@ class DecisionFlow:
     final_node: str
     name: str = "flow"
     strict_reproducibility: bool = False
+    _topological_nodes: tuple[DecisionNode, ...] = field(init=False, repr=False)
+    _nodes_by_name: dict[str, DecisionNode] = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         ordered = validate_flow_definition(tuple(self.nodes), self.final_node)

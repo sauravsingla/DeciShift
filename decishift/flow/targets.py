@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from typing import Callable, Protocol, runtime_checkable
 
 import numpy as np
 
@@ -37,7 +37,7 @@ class ChangeFromBaseline:
         return (~action_equal_mask(trace.actions, baseline_trace.actions)).astype(float)
 
 
-BUILTIN_TARGETS = {
+BUILTIN_TARGETS: dict[str, Callable[[], AttributionTarget]] = {
     "candidate_action_support": CandidateActionSupport,
     "change_from_baseline": ChangeFromBaseline,
 }

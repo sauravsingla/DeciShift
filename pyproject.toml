@@ -40,10 +40,13 @@ dev = [
   "pytest>=8.0",
   "pytest-cov>=5.0",
   "ruff>=0.6",
+  "mypy>=1.11",
+  "hypothesis>=6.112",
   "build>=1.2",
   "twine>=5.1",
   "scikit-learn>=1.3",
 ]
+mutation = ["mutmut>=3.0"]
 
 [project.scripts]
 decishift = "decishift.cli:app"
@@ -74,4 +77,21 @@ target-version = "py311"
 line-length = 120
 
 [tool.ruff.lint]
-select = ["E9", "F"]
+select = ["E4", "E9", "F"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+
+[tool.mutmut]
+source_paths = ["decishift/evidence.py", "decishift/flow/actions.py"]
+pytest_add_cli_args_test_selection = [
+  "tests/test_evidence_golden.py",
+  "tests/test_properties.py",
+  "tests/test_v03_typed_action_evidence.py",
+  "tests/test_v02_integrity_contracts.py",
+]

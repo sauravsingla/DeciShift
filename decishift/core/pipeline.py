@@ -31,6 +31,7 @@ def _as_1d(values: Any, n: int, name: str, *, finite: bool = False) -> np.ndarra
 
 def _invoke_with_signature(fn: Callable[..., Any], label: str, variants: list[tuple[Any, ...]]) -> Any:
     """Choose a supported calling convention without swallowing internal TypeError."""
+    args: tuple[Any, ...] | None
     try:
         signature = inspect.signature(fn)
     except (TypeError, ValueError):

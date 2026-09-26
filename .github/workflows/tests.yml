@@ -41,6 +41,9 @@ jobs:
       - name: Verify generated API reference
         if: matrix.python-version == '3.11'
         run: python scripts/generate_api_reference.py --check
+      - name: Smoke-test release SBOM generation
+        if: matrix.python-version == '3.11'
+        run: python scripts/generate_sbom.py --output /tmp/decishift-sbom.cdx.json
       - run: pytest --cov=decishift --cov-report=term-missing --cov-report=json:coverage.json
       - name: Enforce trust-critical coverage floor
         if: matrix.python-version == '3.11'

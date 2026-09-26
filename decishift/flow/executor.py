@@ -27,6 +27,7 @@ def _invoke_node(component: Any, node_name: str, records: pd.DataFrame, inputs: 
         raise TypeError(f"Node '{node_name}' component must be callable or expose run(records, inputs)")
 
     variants = [(records, inputs), (records,)]
+    args: tuple[Any, ...] | None
     try:
         signature = inspect.signature(fn)
     except (TypeError, ValueError):

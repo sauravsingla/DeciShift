@@ -1,0 +1,57 @@
+:root {
+  --bg: #0b1020;
+  --panel: #11182b;
+  --text: #e8edf7;
+  --muted: #a8b3c7;
+  --line: #27324a;
+  --accent: #7dd3fc;
+  --accent-2: #c4b5fd;
+  --code: #0f172a;
+  --max: 980px;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: linear-gradient(180deg, #0b1020 0%, #10182a 38%, #0b1020 100%);
+  color: var(--text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.65;
+}
+
+.wrap { width: min(calc(100% - 2rem), var(--max)); margin: 0 auto; }
+.site-header { position: sticky; top: 0; z-index: 10; backdrop-filter: blur(14px); background: rgba(11,16,32,.86); border-bottom: 1px solid var(--line); }
+.header-inner { min-height: 66px; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.brand { color: white; text-decoration: none; font-weight: 800; letter-spacing: .2px; }
+nav { display: flex; gap: .9rem; flex-wrap: wrap; }
+nav a { color: var(--muted); text-decoration: none; font-size: .94rem; }
+nav a:hover { color: white; }
+
+.content { padding: 3.4rem 0 5rem; }
+.content > h1:first-child { font-size: clamp(2.5rem, 7vw, 4.8rem); line-height: 1; letter-spacing: -0.045em; margin: .25rem 0 1rem; }
+h2 { margin-top: 2.8rem; font-size: clamp(1.5rem, 3vw, 2rem); letter-spacing: -0.02em; }
+h3 { margin-top: 2rem; }
+p, li { color: #d6deec; }
+a { color: var(--accent); }
+a:hover { color: #bae6fd; }
+strong { color: #fff; }
+
+blockquote { margin: 1.5rem 0; padding: .8rem 1rem; border-left: 3px solid var(--accent-2); background: rgba(196,181,253,.06); color: var(--text); }
+pre { overflow-x: auto; background: var(--code); border: 1px solid var(--line); border-radius: 12px; padding: 1rem; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+:not(pre) > code { background: rgba(125,211,252,.08); padding: .12rem .35rem; border-radius: 5px; }
+
+table { width: 100%; border-collapse: collapse; margin: 1.4rem 0; display: block; overflow-x: auto; }
+th, td { text-align: left; padding: .75rem; border: 1px solid var(--line); vertical-align: top; }
+th { background: rgba(125,211,252,.07); color: #fff; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 3rem 0; }
+
+.site-footer { border-top: 1px solid var(--line); padding: 1.5rem 0 2.5rem; }
+.site-footer p { color: var(--muted); font-size: .9rem; }
+
+@media (max-width: 760px) {
+  .header-inner { align-items: flex-start; flex-direction: column; padding: .85rem 0; }
+  nav { gap: .7rem; }
+  .content { padding-top: 2.3rem; }
+}

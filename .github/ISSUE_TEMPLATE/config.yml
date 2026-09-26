@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Usage and design questions
+    url: https://github.com/sauravsingla/DeciShift/discussions
+    about: Ask how-to, design, and interpretation questions in Discussions.
+  - name: Security policy
+    url: https://github.com/sauravsingla/DeciShift/blob/main/SECURITY.md
+    about: Follow the private-reporting guidance before disclosing a vulnerability.

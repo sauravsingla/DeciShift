@@ -1,0 +1,11 @@
+{
+  "evidence_schema_version": "2.0",
+  "evidence_mode": "flow",
+  "evidence_artifact_sha256": {
+    "summary.json": "sha256:ad7d44ecd1e997ca3e19520021eadd8cc6d0900bf7205ca94dd497977fe68281"
+  },
+  "scientific_limitations": [
+    "golden fixture for verifier compatibility"
+  ],
+  "integrity_root": "sha256:609c7e4b65125adeb7c47dd0f154302f9ce8e27cc627982e32cb39ab97f6225b"
+}

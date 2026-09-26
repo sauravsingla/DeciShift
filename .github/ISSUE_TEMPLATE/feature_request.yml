@@ -1,0 +1,37 @@
+name: Feature request
+description: Propose a focused DeciShift capability or integration
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Decision-system problem
+      description: What decision-change, evidence, attribution, or release-gating problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the smallest useful behavior or API.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and trust boundaries
+      description: Note any effect on offline execution, determinism, evidence semantics, causality claims, or new infrastructure dependencies.
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checks
+      options:
+        - label: This request is focused on detecting, explaining, verifying, or gating decision changes.
+          required: true
+        - label: I checked existing issues for a similar request.
+          required: true

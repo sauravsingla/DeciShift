@@ -1,0 +1,70 @@
+name: Bug report
+description: Report a reproducible DeciShift defect
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Thanks for helping improve DeciShift. Please remove confidential data and credentials from examples and logs."
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the observed behavior and why it appears incorrect.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: DeciShift version
+      placeholder: "0.3.1"
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: "3.11.16"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "Ubuntu 24.04 / macOS / Windows"
+    validations:
+      required: true
+  - type: input
+    id: install
+    attributes:
+      label: Installation method
+      placeholder: "pip install decishift==0.3.1"
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: Provide the smallest code/configuration and commands that reproduce the issue.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error output or logs
+      description: Paste only non-sensitive output.
+      render: text
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checks
+      options:
+        - label: I removed credentials, confidential data, and personal information.
+          required: true
+        - label: I checked existing issues for the same problem.
+          required: true

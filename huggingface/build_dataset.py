@@ -5,7 +5,6 @@ import json
 import os
 from pathlib import Path
 
-import pandas as pd
 
 from decishift.contracts import evaluate_contract
 from decishift.flow.analysis import analyze_flow_cohorts
@@ -145,8 +144,7 @@ DeciShift-generated code and dataset artifacts in this repository are published 
 
 def main() -> None:
     module = _load_example_module()
-    records, target = module._records()
-    metrics = module._model_metrics(records, target)
+    records, _ = module._records()
 
     baseline = module._flow(
         features="v1", model="v1", policy="v1", rules="v1", name="digits-case-baseline"

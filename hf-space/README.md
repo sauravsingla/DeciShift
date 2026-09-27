@@ -18,6 +18,7 @@ It visualizes how a candidate ML decision system can improve model-level metrics
 
 The displayed evidence is generated from the public DeciShift repository before publishing the Space. The Space itself does **not** execute an ML model, external tool, or hosted API.
 
+- Live Space: https://huggingface.co/spaces/sauravsingla08/DeciShift
 - Source: https://github.com/sauravsingla/DeciShift
 - Dataset: https://huggingface.co/datasets/sauravsingla08/DeciShift-Decision-Change-Benchmark
 - PyPI: https://pypi.org/project/decishift/

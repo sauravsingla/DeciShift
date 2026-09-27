@@ -1,0 +1,50 @@
+name: Publish DeciShift Dataset to Hugging Face
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'huggingface/**'
+      - 'examples/public_digits_xgboost/**'
+      - 'decishift/**'
+      - '.github/workflows/publish-dataset.yml'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish-dataset:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install DeciShift dataset dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev,xgboost]'
+          python -m pip install pyarrow
+
+      - name: Build Hugging Face dataset package
+        run: |
+          rm -rf hf-dataset
+          python huggingface/build_dataset.py
+
+      - name: Install Hugging Face CLI
+        run: |
+          curl -LsSf https://hf.co/cli/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Publish dataset to Hugging Face
+        env:
+          HF_OIDC_RESOURCE: datasets/sauravsingla08/DeciShift-Decision-Change-Benchmark
+        run: |
+          hf upload datasets/sauravsingla08/DeciShift-Decision-Change-Benchmark hf-dataset . \
+            --commit-message "Sync DeciShift benchmark from GitHub ${GITHUB_SHA::7}"

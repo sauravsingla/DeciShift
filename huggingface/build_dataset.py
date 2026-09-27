@@ -66,6 +66,11 @@ tags:
 - software-testing
 - mlops
 - responsible-ai
+configs:
+- config_name: default
+  data_files:
+  - split: train
+    path: data/digits_xgboost.parquet
 ---
 
 # DeciShift Decision-Change Benchmark
@@ -90,8 +95,8 @@ The global shift can stay within its declared limit while a governed cohort exce
 
 ## Files
 
-- `data/digits_xgboost.parquet` — all evaluation records with baseline/candidate actions, transition labels, model scores, cohort context, contract context, and attribution-share context.
-- `data/digits_xgboost_changed.parquet` — changed-decision subset only.
+- `data/digits_xgboost.parquet` — canonical 719-record dataset split with baseline/candidate actions, transition labels, model scores, cohort context, contract context, and attribution-share context.
+- `analysis/digits_xgboost_changed.parquet` — convenience artifact containing changed-decision records only; it is intentionally excluded from the canonical dataset split to avoid duplicate rows in the Dataset Viewer.
 - `summaries/digits_xgboost.json` — machine-readable aggregate case-study evidence.
 - `summaries/scenarios.jsonl` — feature/model/policy/rules/all-change scenario summaries.
 
@@ -193,11 +198,12 @@ def main() -> None:
 
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "data").mkdir(exist_ok=True)
+    (OUT / "analysis").mkdir(exist_ok=True)
     (OUT / "summaries").mkdir(exist_ok=True)
 
     rows.to_parquet(OUT / "data" / "digits_xgboost.parquet", index=False)
     rows.loc[rows["changed"]].to_parquet(
-        OUT / "data" / "digits_xgboost_changed.parquet", index=False
+        OUT / "analysis" / "digits_xgboost_changed.parquet", index=False
     )
 
     full_summary = module.run()
@@ -213,7 +219,7 @@ def main() -> None:
         _dataset_card(full_summary, source_commit), encoding="utf-8"
     )
 
-    print(f"Wrote {len(rows)} records to {OUT}")
+    print(f"Wrote {len(rows)} canonical records to {OUT}")
     print(f"Changed decisions: {int(rows['changed'].sum())}")
     print(f"Contract result: {evaluation_dict['result']}")
 

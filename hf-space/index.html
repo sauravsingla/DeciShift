@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DeciShift — Decision Change Explorer</title>
+  <style>
+    :root{--bg:#0b1020;--panel:#121a2d;--panel2:#18223a;--text:#edf2ff;--muted:#9fb0cf;--line:#2b3b61;--ok:#52d273;--warn:#ffb84d;--bad:#ff6b6b;--accent:#7ea1ff}
+    *{box-sizing:border-box}body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:linear-gradient(180deg,#0b1020,#0d1426 45%,#10182b);color:var(--text)}
+    a{color:#a9c1ff}.wrap{max-width:1180px;margin:0 auto;padding:28px 20px 56px}.hero{padding:8px 0 22px}.eyebrow{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#9db4ff;font-weight:700}.hero h1{font-size:clamp(30px,5vw,54px);line-height:1.02;margin:10px 0 10px}.hero p{max-width:850px;color:var(--muted);font-size:18px;line-height:1.6;margin:0}.links{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}.pill{border:1px solid var(--line);background:#111b31;border-radius:999px;padding:9px 13px;text-decoration:none;color:var(--text);font-size:14px}.grid{display:grid;gap:16px}.metrics{grid-template-columns:repeat(4,minmax(0,1fr));margin:18px 0}.card{background:rgba(18,26,45,.92);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 14px 40px rgba(0,0,0,.18)}.metric .label{color:var(--muted);font-size:13px}.metric .value{font-size:30px;font-weight:800;margin-top:5px}.metric .sub{font-size:12px;color:var(--muted);margin-top:5px}.two{grid-template-columns:1fr 1fr}.section{margin-top:18px}.section h2{font-size:21px;margin:0 0 12px}.section h3{font-size:16px;margin:0 0 10px}.barrow{display:grid;grid-template-columns:150px 1fr 70px;gap:12px;align-items:center;margin:11px 0}.barlabel{font-size:14px}.bar{height:12px;background:#0b1222;border:1px solid #273756;border-radius:999px;overflow:hidden}.fill{height:100%;background:linear-gradient(90deg,#6b8fff,#9e78ff)}.number{text-align:right;font-variant-numeric:tabular-nums}.transition{display:grid;grid-template-columns:1fr auto;gap:12px;padding:12px 0;border-bottom:1px solid #22304d}.transition:last-child{border-bottom:0}.status{font-weight:900;letter-spacing:.04em}.status.block{color:var(--bad)}.status.pass{color:var(--ok)}.controls label{display:block;color:var(--muted);font-size:13px;margin-bottom:8px}.controls input[type=range]{width:100%}.controlrow{display:grid;grid-template-columns:1fr 90px;gap:12px;align-items:center;margin-bottom:18px}.controlvalue{background:#0d1528;border:1px solid var(--line);border-radius:10px;padding:8px 10px;text-align:center;font-variant-numeric:tabular-nums}.cohort-table{width:100%;border-collapse:collapse;font-size:14px}.cohort-table th,.cohort-table td{padding:10px 8px;border-bottom:1px solid #263655;text-align:left}.cohort-table th{color:var(--muted);font-weight:600}.tag{display:inline-block;border:1px solid var(--line);background:#0d1629;border-radius:999px;padding:5px 8px;font-size:12px;margin:3px 5px 3px 0}.note{color:var(--muted);font-size:13px;line-height:1.55}.callout{border-left:4px solid var(--accent);padding:12px 14px;background:#10192c;border-radius:10px;color:#dbe4ff}.footer{margin-top:26px;color:var(--muted);font-size:13px;line-height:1.6}.loading{padding:30px;text-align:center;color:var(--muted)}
+    @media(max-width:900px){.metrics{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}.barrow{grid-template-columns:120px 1fr 58px}}
+    @media(max-width:560px){.metrics{grid-template-columns:1fr}.barrow{grid-template-columns:1fr}.number{text-align:left}.cohort-table{font-size:12px}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">ML behavioral regression testing</div>
+      <h1>DeciShift</h1>
+      <p>See what aggregate model metrics can hide: which final operational decisions changed, which software components moved them, and whether declared decision-change limits should block a candidate release.</p>
+      <div class="links">
+        <a class="pill" href="https://github.com/sauravsingla/DeciShift" target="_blank" rel="noreferrer">GitHub</a>
+        <a class="pill" href="https://huggingface.co/datasets/sauravsingla08/DeciShift-Decision-Change-Benchmark" target="_blank" rel="noreferrer">Hugging Face Dataset</a>
+        <a class="pill" href="https://pypi.org/project/decishift/" target="_blank" rel="noreferrer">PyPI</a>
+      </div>
+    </section>
+
+    <div id="app" class="loading">Loading reproducible public benchmark evidence…</div>
+  </main>
+
+<script>
+const fmtPct = x => `${(100*x).toFixed(2)}%`;
+const fmt4 = x => Number(x).toFixed(4);
+const esc = s => String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
+
+fetch('data.json').then(r=>{if(!r.ok) throw new Error('data.json unavailable'); return r.json();}).then(data=>render(data)).catch(err=>{
+  document.getElementById('app').innerHTML = `<div class="card"><h2>Evidence payload not built yet</h2><p class="note">${esc(err.message)}. The publishing workflow generates <code>data.json</code> from DeciShift's public Digits/XGBoost example before uploading this Space.</p></div>`;
+});
+
+function render(d){
+  const m=d.model_metrics;
+  const attrs=(d.attribution||[]);
+  const transitions=(d.transitions||[]).sort((a,b)=>b.count-a.count);
+  const cohorts=(d.cohorts||[]);
+  const maxAttr=Math.max(...attrs.map(x=>x.share),1);
+  const maxTrans=Math.max(...transitions.map(x=>x.count),1);
+
+  document.getElementById('app').className='';
+  document.getElementById('app').innerHTML = `
+    <div class="callout"><strong>Public case study:</strong> ${esc(d.scenario)}. Model metrics improve, but DeciShift still detects record-level action movement and evaluates declared release limits.</div>
+
+    <section class="grid metrics">
+      <div class="card metric"><div class="label">Evaluation records</div><div class="value">${d.records}</div><div class="sub">Deterministic held-out split</div></div>
+      <div class="card metric"><div class="label">Changed final actions</div><div class="value">${d.changed_actions}</div><div class="sub">${fmtPct(d.action_shift_rate)} of records</div></div>
+      <div class="card metric"><div class="label">Accuracy</div><div class="value">${fmtPct(m.candidate_accuracy)}</div><div class="sub">Baseline ${fmtPct(m.baseline_accuracy)}</div></div>
+      <div class="card metric"><div class="label">ROC AUC</div><div class="value">${fmt4(m.candidate_roc_auc)}</div><div class="sub">Baseline ${fmt4(m.baseline_roc_auc)}</div></div>
+    </section>
+
+    <section class="grid two section">
+      <div class="card">
+        <h2>Changed action transitions</h2>
+        ${transitions.map(t=>`<div class="barrow"><div class="barlabel">${esc(t.transition)}</div><div class="bar"><div class="fill" style="width:${100*t.count/maxTrans}%"></div></div><div class="number">${t.count}</div></div>`).join('')}
+        <p class="note">Counts include only records whose final operational action changed.</p>
+      </div>
+      <div class="card">
+        <h2>Software-counterfactual attribution</h2>
+        ${attrs.map(a=>`<div class="barrow"><div class="barlabel">${esc(a.node)}</div><div class="bar"><div class="fill" style="width:${100*a.share/maxAttr}%"></div></div><div class="number">${fmtPct(a.share)}</div></div>`).join('')}
+        <p class="note">Attribution describes the executable software counterfactual in this fixed evaluation. It does not establish real-world causality.</p>
+      </div>
+    </section>
+
+    <section class="grid two section">
+      <div class="card">
+        <h2>Decision Contract</h2>
+        <p class="note">Published benchmark result under the committed contract:</p>
+        <div class="status ${String(d.contract_evaluation.result).toLowerCase()==='pass'?'pass':'block'}" style="font-size:34px;margin:12px 0">${esc(d.contract_evaluation.result)}</div>
+        <div>${(d.changed_nodes||[]).map(n=>`<span class="tag">${esc(n)}</span>`).join('')}</div>
+        <p class="note">A pass/block result only reflects user-declared limits over the supplied evidence. It is not a safety, fairness, compliance, or correctness certification.</p>
+      </div>
+
+      <div class="card controls">
+        <h2>What-if gate explorer</h2>
+        <p class="note">Adjust limits to see how governance policy changes the displayed gate interpretation. This does not rerun DeciShift or modify the benchmark.</p>
+        <label for="globalLimit">Global action-shift limit</label>
+        <div class="controlrow"><input id="globalLimit" type="range" min="0" max="0.15" step="0.001" value="0.05"><div id="globalValue" class="controlvalue">5.00%</div></div>
+        <label for="digit6Limit">actual_digit=6 cohort limit</label>
+        <div class="controlrow"><input id="digit6Limit" type="range" min="0" max="0.20" step="0.001" value="0.08"><div id="digit6Value" class="controlvalue">8.00%</div></div>
+        <div id="whatIfResult"></div>
+      </div>
+    </section>
+
+    <section class="card section">
+      <h2>Cohort action-shift rates</h2>
+      <div style="overflow:auto"><table class="cohort-table"><thead><tr><th>Cohort</th><th>Records</th><th>Shift rate</th><th>Declared limit</th><th>Status</th><th>Most common changed transition</th></tr></thead><tbody>
+      ${cohorts.map(c=>`<tr><td>actual_digit=${esc(c.digit)}</td><td>${c.size}</td><td>${fmtPct(c.action_shift_rate)}</td><td>${fmtPct(c.declared_limit)}</td><td class="${c.violation?'status block':'status pass'}">${c.violation?'VIOLATION':'OK'}</td><td>${esc(c.most_common_transition)}</td></tr>`).join('')}
+      </tbody></table></div>
+    </section>
+
+    <section class="card section">
+      <h2>Interpretation</h2>
+      <p>In this public example, the candidate improves both accuracy and ROC AUC, while ${d.changed_actions} of ${d.records} final actions still move. DeciShift makes those transitions explicit, attributes them across versioned nodes, and evaluates cohort-aware release limits rather than relying only on aggregate model metrics.</p>
+      <p class="note">Generated from source commit <code>${esc(d.generated_from_commit)}</code>. Source data: scikit-learn Digits. The Space is a browser-only visualization of generated evidence.</p>
+    </section>
+
+    <div class="footer">DeciShift is CPU-first, local-first, and framework-agnostic. This demonstration is descriptive evaluation evidence over a fixed public split and is not a production deployment recommendation.</div>`;
+
+  const globalSlider=document.getElementById('globalLimit');
+  const digitSlider=document.getElementById('digit6Limit');
+  function update(){
+    const g=Number(globalSlider.value), d6=Number(digitSlider.value);
+    document.getElementById('globalValue').textContent=fmtPct(g);
+    document.getElementById('digit6Value').textContent=fmtPct(d6);
+    const c6=cohorts.find(c=>String(c.digit)==='6');
+    const globalFail=d.action_shift_rate>g;
+    const cohortFail=c6 ? c6.action_shift_rate>d6 : false;
+    const fail=globalFail||cohortFail;
+    document.getElementById('whatIfResult').innerHTML=`<div class="status ${fail?'block':'pass'}" style="font-size:28px;margin:8px 0">${fail?'BLOCK':'PASS'}</div><div class="note">Global: ${fmtPct(d.action_shift_rate)} ${globalFail?'&gt;':'≤'} ${fmtPct(g)}${c6?`<br>actual_digit=6: ${fmtPct(c6.action_shift_rate)} ${cohortFail?'&gt;':'≤'} ${fmtPct(d6)}`:''}</div>`;
+  }
+  globalSlider.addEventListener('input',update); digitSlider.addEventListener('input',update); update();
+}
+</script>
+</body>
+</html>

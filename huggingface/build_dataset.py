@@ -67,6 +67,7 @@ tags:
 - responsible-ai
 configs:
 - config_name: default
+  default: true
   data_files:
   - split: train
     path: data/digits_xgboost.parquet
@@ -91,6 +92,14 @@ Model-level metrics can improve while operational decisions still move. In the c
 - Decision Contract result: **{contract_result}**
 
 The global shift can stay within its declared limit while a governed cohort exceeds its own limit. That is the kind of regression DeciShift is built to surface.
+
+## Canonical Dataset Viewer split
+
+The Hugging Face Dataset Viewer is explicitly configured to load only:
+
+`data/digits_xgboost.parquet`
+
+The changed-record convenience artifact and aggregate summaries remain downloadable evidence, but they are intentionally excluded from the canonical split so the Viewer cannot duplicate records or infer an incompatible schema from auxiliary files.
 
 ## Files
 
@@ -126,9 +135,11 @@ Generated from DeciShift source commit `{source_commit}` by:
 python huggingface/build_dataset.py
 ```
 
-Source repository: https://github.com/sauravsingla/DeciShift
+## Related artifacts
 
-PyPI: https://pypi.org/project/decishift/
+- Interactive Space: https://huggingface.co/spaces/sauravsingla08/DeciShift
+- Source repository: https://github.com/sauravsingla/DeciShift
+- PyPI: https://pypi.org/project/decishift/
 
 ## Important limits
 

@@ -15,6 +15,10 @@ permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: decishift-huggingface-space
+  cancel-in-progress: true
+
 jobs:
   publish-space:
     runs-on: ubuntu-latest
@@ -32,6 +36,44 @@ jobs:
 
       - name: Build Space evidence payload
         run: python huggingface/build_space.py
+
+      - name: Validate Space provenance and interpretation boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          payload = json.loads(Path("hf-space/data.json").read_text(encoding="utf-8"))
+          if payload.get("generated_from_commit") != "${{ github.sha }}":
+              raise SystemExit("Space evidence was not generated from the publishing GitHub SHA")
+          if int(payload.get("records", 0)) != 719:
+              raise SystemExit("unexpected DeciShift evaluation-record count")
+          if int(payload.get("changed_actions", -1)) < 0:
+              raise SystemExit("changed_actions is missing")
+          if not payload.get("cohorts"):
+              raise SystemExit("cohort evidence is missing")
+          if not payload.get("contract_evaluation", {}).get("result"):
+              raise SystemExit("Decision Contract result is missing")
+
+          note = str(payload.get("limits_note", ""))
+          if "do not rerun DeciShift" not in note:
+              raise SystemExit("what-if interpretation boundary is missing")
+
+          page = Path("hf-space/index.html").read_text(encoding="utf-8")
+          required_page_fragments = [
+              "Software-counterfactual attribution",
+              "does not establish real-world causality",
+              "not a safety, fairness, compliance, or correctness certification",
+              "https://huggingface.co/datasets/sauravsingla08/DeciShift-Decision-Change-Benchmark",
+          ]
+          missing = [fragment for fragment in required_page_fragments if fragment not in page]
+          if missing:
+              raise SystemExit(f"Space interpretation contract missing: {missing}")
+
+          print("Validated DeciShift Space provenance and interpretation boundaries")
+          PY
 
       - name: Install Hugging Face CLI
         run: |

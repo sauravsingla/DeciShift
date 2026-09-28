@@ -1,17 +1,95 @@
+<div align="center">
+
 # DeciShift
 
+### Catch ML decision changes before they reach production.
+
+**Your model metrics improved. Did its actual decisions change?**
+
+[![GitHub stars](https://img.shields.io/github/stars/sauravsingla/DeciShift?style=social)](https://github.com/sauravsingla/DeciShift/stargazers)
 [![CI](https://github.com/sauravsingla/DeciShift/actions/workflows/tests.yml/badge.svg)](https://github.com/sauravsingla/DeciShift/actions/workflows/tests.yml)
 [![PyPI version](https://img.shields.io/badge/PyPI-v0.3.1-blue.svg)](https://pypi.org/project/decishift/0.3.1/)
 [![Python versions](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://pypi.org/project/decishift/0.3.1/)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
-[![Hugging Face Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Dataset-FFD21E)](https://huggingface.co/datasets/sauravsingla08/DeciShift-Decision-Change-Benchmark)
-[![Hugging Face Space](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Live%20Space-FFD21E)](https://huggingface.co/spaces/sauravsingla08/DeciShift)
+[![Hugging Face Space](https://img.shields.io/badge/%F0%9F%A4%97%20Live-Demo-FFD21E)](https://huggingface.co/spaces/sauravsingla08/DeciShift)
+[![Hugging Face Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20Benchmark-Dataset-FFD21E)](https://huggingface.co/datasets/sauravsingla08/DeciShift-Decision-Change-Benchmark)
 
-**Explain why final decisions changed between versions of an ML decision system.**
+[**Quick start**](#60-second-quick-start) · [**Live demo**](https://huggingface.co/spaces/sauravsingla08/DeciShift) · [**Public case study**](#public-data-result-why-decision-level-regression-matters) · [**Docs**](#documentation) · [**Contribute**](CONTRIBUTING.md)
 
-DeciShift is an **open-source ML behavioral regression testing and decision-change analysis framework**. It replays a baseline and candidate decision system on the same historical records, identifies record-level action transitions, attributes changes to versioned software components, preserves verifiable evidence, and can turn declared limits into a deterministic release gate.
+</div>
 
-Git tells you **which code changed**. Model evaluation tells you **whether model metrics changed**. DeciShift focuses on **which final operational decisions changed and how those changes map back to the executable system**.
+---
+
+DeciShift is an **open-source ML behavioral regression testing and decision-change analysis framework**. It compares a baseline and candidate decision system on the same records, finds **record-level action changes**, attributes those changes to versioned software components, preserves verifiable evidence, and can turn declared limits into a deterministic release gate.
+
+Git tells you **which code changed**. Model evaluation tells you **whether model metrics changed**. DeciShift asks the production question in between:
+
+> **Which final decisions changed, for which records, why did they change, and should this release be blocked?**
+
+DeciShift is **CPU-first, local-first, offline-capable, and framework-agnostic**. Core operation requires no GPU, cloud service, database, Docker runtime, model registry, hosted dashboard, LLM/API, or telemetry service.
+
+## The result in one example
+
+A committed public-data evaluation in this repository compares two versions of an ML decision system on **719 held-out records**.
+
+| What changed? | Result |
+|---|---:|
+| Model accuracy | **90.26% → 91.79%** |
+| ROC AUC | **0.9429 → 0.9472** |
+| Final actions changed | **30 / 719 (4.17%)** |
+| Global action-shift contract | **PASS** |
+| Governed cohort action shift | **9.41% vs 8% limit** |
+| Final Decision Contract | **BLOCK** |
+
+The model looked better by standard metrics, yet individual operational decisions still moved enough for one governed cohort to exceed its declared limit.
+
+That is the gap DeciShift is designed to expose.
+
+## 60-second quick start
+
+```bash
+python -m pip install --upgrade decishift==0.3.1
+decishift demo --rows 1000 --no-save
+```
+
+For the complete trust path from a source checkout:
+
+```bash
+python -m pip install -e ".[dev]"
+decishift graph examples/triage/flow.yaml
+decishift compare examples/triage/flow.yaml
+# copy the emitted Run ID
+decishift verify RUN_ID
+decishift gate RUN_ID --contract examples/triage/decision-contract.yaml
+```
+
+The bundled run demonstrates the same `graph → compare → verify → gate` flow:
+
+![DeciShift 60-second real DecisionFlow run](https://github.com/sauravsingla/DeciShift/releases/download/v0.3.0/decishift-real-run-inline.gif)
+
+If this project is useful to your work in ML testing, MLOps, model governance or decision systems, **consider starring the repository** so other practitioners can discover it.
+
+## What DeciShift gives you
+
+- **Record-level decision diffs** — see exactly which final actions changed between versions.
+- **Transition analysis** — inspect changes such as `review → auto_approve`, not only aggregate rates.
+- **Software-counterfactual attribution** — estimate which versioned components account for observed action changes.
+- **Cohort-aware release gates** — declare allowed limits globally or for governed cohorts.
+- **Verifiable run evidence** — save manifests and artifacts with an integrity root for later verification.
+- **CI-friendly outcomes** — deterministic exit codes distinguish pass, contract violation, insufficient evidence, and integrity failure.
+
+## Where it helps
+
+| Situation | Aggregate view | Decision-level question DeciShift adds |
+|---|---|---|
+| Candidate accuracy/AUC improves | Looks better overall | Which individual operational actions still changed? |
+| A threshold or policy changes | Model may be identical | Which action transitions were introduced by policy behavior? |
+| A downstream rule changes | Model metrics may be unchanged | Which records moved because the executable decision layer changed? |
+| Global change is acceptable | Overall shift stays below a limit | Does a governed cohort exceed its own declared limit? |
+
+DeciShift complements experiment trackers, model registries, evaluation/monitoring systems, orchestration, and CI/CD rather than replacing them. See [related categories and the information matrix](docs/comparisons.md).
+
+## How it works
 
 ```mermaid
 flowchart LR
@@ -24,19 +102,6 @@ flowchart LR
     G -->|inside declared limits| H[PASS]
     G -->|violation / insufficient evidence| I[BLOCK / explicit failure]
 ```
-
-DeciShift is CPU-first, local-first, offline-capable, and framework-agnostic. Core operation requires no GPU, cloud service, database, Docker runtime, model registry, hosted dashboard, LLM/API, or telemetry service.
-
-## Where it helps
-
-| Situation | Aggregate view | Decision-level question DeciShift adds |
-|---|---|---|
-| Candidate accuracy/AUC improves | Looks better overall | Which individual operational actions still changed? |
-| A threshold or policy changes | Model may be identical | Which action transitions were introduced by policy behavior? |
-| A downstream rule changes | Model metrics may be unchanged | Which records moved because the executable decision layer changed? |
-| Global change is acceptable | Overall shift stays below a limit | Does a governed cohort exceed its own declared limit? |
-
-DeciShift complements experiment trackers, model registries, evaluation/monitoring systems, orchestration, and CI/CD rather than replacing them. See [related categories and the information matrix](docs/comparisons.md).
 
 ## Public-data result: why decision-level regression matters
 
@@ -62,37 +127,7 @@ Despite the improved model metrics and a similar aggregate action mix, **30 of 7
 
 Exact software-counterfactual attribution over the changed nodes assigned **48.86%** absolute attribution share to the model, **46.59%** to policy, and **4.55%** to rules. The global Decision Contract passed its 5% action-shift limit, but the `actual_digit=6` cohort shifted **9.41%**, above its declared 8% limit, so the contract returned **BLOCK**.
 
-That is the core gap DeciShift is built to expose:
-
-> **model metric improves → aggregate action mix looks similar → individual actions still move → transitions are identified → versioned software changes are attributed → governed limits can block release**
-
 The figures are tied to the committed machine-generated snapshot for source commit [`76bbf63abb7fdbba26739f3c8f96f94e0110bfc8`](docs/case-studies/digits-xgboost-76bbf63abb7fdbba26739f3c8f96f94e0110bfc8.md). They are descriptive evidence over this public evaluation split, not a claim of production safety, fairness, compliance, or real-world causality.
-
-## Quick start
-
-Current release: **v0.3.1 — Trust and evaluation hardening**.
-
-```bash
-python -m pip install --upgrade decishift==0.3.1
-decishift demo --rows 1000 --no-save
-```
-
-From a source checkout, run the complete DecisionFlow trust path:
-
-```bash
-python -m pip install -e ".[dev]"
-decishift graph examples/triage/flow.yaml
-decishift compare examples/triage/flow.yaml
-# copy the emitted Run ID
-decishift verify RUN_ID
-decishift gate RUN_ID --contract examples/triage/decision-contract.yaml
-```
-
-The bundled 60-second run demonstrates the same `graph → compare → verify → gate` path:
-
-![DeciShift 60-second real DecisionFlow run](https://github.com/sauravsingla/DeciShift/releases/download/v0.3.0/decishift-real-run-inline.gif)
-
-A contract pass means only that observed evidence stayed inside user-declared limits; it is not proof that a candidate is safer, better, fairer, compliant, or correct.
 
 ## Python API in one small example
 

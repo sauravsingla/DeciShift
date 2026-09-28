@@ -14,6 +14,10 @@ permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: decishift-huggingface-dataset
+  cancel-in-progress: true
+
 jobs:
   publish-dataset:
     runs-on: ubuntu-latest
@@ -36,6 +40,48 @@ jobs:
         run: |
           rm -rf hf-dataset
           python huggingface/build_dataset.py
+
+      - name: Validate Viewer contract and provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import pandas as pd
+
+          root = Path("hf-dataset")
+          canonical = root / "data" / "digits_xgboost.parquet"
+          card = (root / "README.md").read_text(encoding="utf-8")
+          frame = pd.read_parquet(canonical)
+
+          if len(frame) != 719:
+              raise SystemExit(f"expected 719 canonical rows, found {len(frame)}")
+          if frame["record_id"].duplicated().any():
+              raise SystemExit("record_id must be unique in the canonical split")
+          if set(frame["source_commit"].astype(str)) != {"${{ github.sha }}"}:
+              raise SystemExit("canonical rows do not carry the publishing GitHub SHA")
+
+          required_card_fragments = [
+              "default: true",
+              "path: data/digits_xgboost.parquet",
+              "https://huggingface.co/spaces/sauravsingla08/DeciShift",
+              "Software-counterfactual attribution does **not** establish real-world causality",
+          ]
+          missing = [fragment for fragment in required_card_fragments if fragment not in card]
+          if missing:
+              raise SystemExit(f"dataset card contract missing: {missing}")
+
+          extra_data_files = [p for p in (root / "data").iterdir() if p.name != canonical.name]
+          if extra_data_files:
+              raise SystemExit(f"unexpected canonical data files: {extra_data_files}")
+
+          if not (root / "analysis" / "digits_xgboost_changed.parquet").is_file():
+              raise SystemExit("changed-record analysis artifact missing")
+          if not (root / "summaries" / "digits_xgboost.json").is_file():
+              raise SystemExit("case-study summary missing")
+
+          print("Validated DeciShift canonical Viewer split, metadata, and source provenance")
+          PY
 
       - name: Install Hugging Face CLI
         run: |

@@ -1,0 +1,89 @@
+name: Publish DeciShift Model to Hugging Face
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: decishift-huggingface-model
+  cancel-in-progress: true
+
+jobs:
+  publish-model:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install DeciShift model dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev,xgboost]'
+
+      - name: Build Hugging Face model package
+        run: |
+          rm -rf hf-model
+          python huggingface/build_model.py
+
+      - name: Validate model package and provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("hf-model")
+          required = [
+              root / "baseline.json",
+              root / "candidate.json",
+              root / "metadata.json",
+              root / "README.md",
+          ]
+          missing = [str(path) for path in required if not path.is_file()]
+          if missing:
+              raise SystemExit(f"missing Hugging Face model artifacts: {missing}")
+
+          metadata = json.loads((root / "metadata.json").read_text(encoding="utf-8"))
+          if metadata.get("source_commit") != "${{ github.sha }}":
+              raise SystemExit("model package was not generated from the publishing GitHub SHA")
+          if int(metadata.get("evaluation_records", 0)) != 719:
+              raise SystemExit("unexpected DeciShift evaluation-record count")
+          if metadata.get("models", {}).get("baseline", {}).get("boosting_rounds") != 20:
+              raise SystemExit("baseline model configuration mismatch")
+          if metadata.get("models", {}).get("candidate", {}).get("boosting_rounds") != 25:
+              raise SystemExit("candidate model configuration mismatch")
+
+          card = (root / "README.md").read_text(encoding="utf-8")
+          required_card_fragments = [
+              "library_name: xgboost",
+              "DeciShift Digits XGBoost Baseline & Candidate Models",
+              "https://github.com/sauravsingla/DeciShift",
+              "not presented as general-purpose digit-recognition models",
+          ]
+          missing_card = [fragment for fragment in required_card_fragments if fragment not in card]
+          if missing_card:
+              raise SystemExit(f"model card contract missing: {missing_card}")
+
+          print("Validated DeciShift Hugging Face model artifacts and provenance")
+          PY
+
+      - name: Install Hugging Face CLI
+        run: |
+          curl -LsSf https://hf.co/cli/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Publish model to Hugging Face
+        env:
+          HF_OIDC_RESOURCE: sauravsingla08/DeciShift-Digits-XGBoost
+        run: |
+          hf upload sauravsingla08/DeciShift-Digits-XGBoost hf-model . \
+            --commit-message "Sync DeciShift XGBoost models from GitHub ${GITHUB_SHA::7}"

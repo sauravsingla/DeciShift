@@ -81,7 +81,7 @@ The bundled real run demonstrates the same `graph → compare → verify → gat
 
 ## Explore the live decision-change explorer
 
-The **[DeciShift Decision Change Explorer](https://huggingface.co/spaces/sauravsingla08/DeciShift)** is a browser-only visualization of generated public benchmark evidence. It surfaces changed actions, transition counts, software-counterfactual attribution, cohort action-shift rates, and Decision Contract interpretation for the public Digits/XGBoost case study.
+The **DeciShift Decision Change Explorer** is a browser-only visualization of generated public benchmark evidence. It surfaces changed actions, transition counts, software-counterfactual attribution, cohort action-shift rates, and Decision Contract interpretation for the public Digits/XGBoost case study.
 
 The Space visualizes evidence generated from DeciShift's public Digits/XGBoost evaluation pipeline and links back to the benchmark dataset and PyPI package.
 

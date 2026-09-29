@@ -86,6 +86,10 @@ The **DeciShift Decision Change Explorer** is a browser-only visualization of ge
 The Space visualizes evidence generated from DeciShift's public Digits/XGBoost evaluation pipeline and links back to the benchmark dataset and PyPI package.
 
 <p align="center">
+  <img src="assets/decishift-hf-space-preview.svg" alt="DeciShift Hugging Face Decision Change Explorer" width="100%">
+</p>
+
+<p align="center">
   <a href="https://huggingface.co/spaces/sauravsingla08/DeciShift"><b>Open the live Hugging Face Space →</b></a>
 </p>
 
